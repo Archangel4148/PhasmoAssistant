@@ -90,7 +90,6 @@ class VoiceRecognizer:
                     self.on_trigger(keyword)
                 self._triggered.add(keyword)
 
-
     def start(self, on_trigger=None, background=False):
         """
         Start recognition loop.
@@ -106,31 +105,6 @@ class VoiceRecognizer:
         else:
             self._recognition_loop()
 
-        # with sd.RawInputStream(
-        #         samplerate=self.sample_rate,
-        #         device=self.device,
-        #         dtype="int16",
-        #         channels=1,
-        #         callback=self._audio_callback
-        # ):
-        #     print("Voice recognizer started...")
-        #     while self._running:
-        #         data = self._queue.get()
-        #         self._buffer += data
-        #
-        #         while len(self._buffer) >= self.chunk_size:
-        #             chunk, self._buffer = self._buffer[:self.chunk_size], self._buffer[self.chunk_size:]
-        #
-        #             if self.recognizer.AcceptWaveform(chunk):
-        #                 res = json.loads(self.recognizer.Result())
-        #                 text = res.get("text", "").lower()
-        #                 self._handle_text(text)
-        #                 self._triggered.clear()  # reset debounce after final result
-        #             else:
-        #                 res = json.loads(self.recognizer.PartialResult())
-        #                 text = res.get("partial", "").lower()
-        #                 self._handle_text(text)
-
     def stop(self):
         """Stop the recognition loop."""
         self._running = False
@@ -139,18 +113,12 @@ class VoiceRecognizer:
 
 
 if __name__ == '__main__':
-    from sound_player import SoundPlayer
-    from constants import RECOGNIZED_KEYWORDS
-
-    sound_player = SoundPlayer()
-
     def handle_keyword(keyword):
         print(f"Trigger detected: {keyword}")
-        sound_player.play("sounds/beep.wav")
 
 
     # Create recognizer
-    recognizer = VoiceRecognizer(RECOGNIZED_KEYWORDS)
+    recognizer = VoiceRecognizer(["test one", "test two", "test three"])
 
     # Start the recognizer
     recognizer.start(on_trigger=handle_keyword, background=True)
