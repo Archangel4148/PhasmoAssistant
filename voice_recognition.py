@@ -22,9 +22,12 @@ class VoiceRecognizer:
         self.device = device
         self.chunk_size = chunk_size
 
+        device_info = sd.query_devices(device, "input")
+        print("Creating voice recognizer for input device:", device_info["name"])
+
         # Get sample rate
         if sample_rate is None:
-            self.sample_rate = int(sd.query_devices(device, "input")["default_samplerate"])
+            self.sample_rate = int(device_info["default_samplerate"])
         else:
             self.sample_rate = sample_rate
 
