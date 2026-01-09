@@ -40,5 +40,7 @@ RECOGNIZED_KEYWORDS = [
 
     # Function triggers
     "trigger dark mode",
+    "trigger narration level one",
+    "trigger narration level two",
     "trigger narration level three"
 ]

@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>PhasmoAssistant Live</title>
+    <!-- Flask can handle these paths automatically -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="{{ url_for('static', filename='js/main.js') }}" defer></script>
+</head>
+<body>
+    <h1>PhasmoAssistant Live</h1>
+    <pre id="status"></pre>
+
+    <h2>Commands</h2>
+
+    <!-- Buttons (define the functions in js/main.js) -->
+    <button onclick="sendCommand('start_game')">Start Game</button>
+    <button onclick="sendCommand('end_game')">End Game</button>
+    <button onclick="sendCommand('reset_keywords')">Reset Keywords</button>
+</body>
+</html>
