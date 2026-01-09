@@ -1,24 +1,123 @@
-/* Base (light mode) */
+:root {
+    --bg-light: #f4f6f8;
+    --bg-dark: #0f1115;
+
+    --card-light: #ffffff;
+    --card-dark: #1b1f27;
+
+    --text-light: #1a1a1a;
+    --text-dark: #e6e6e6;
+
+    --accent: #7aa2f7;
+    --shadow-light: rgba(0, 0, 0, 0.08);
+    --shadow-dark: rgba(0, 0, 0, 0.4);
+}
+
 body {
-    background-color: #ffffff;
-    color: #111111;
-    font-family: sans-serif;
-    transition: background-color 0.2s, color 0.2s;
+    margin: 0;
+    padding: 1.5rem 2rem;
+
+    background-color: var(--bg-light);
+    color: var(--text-light);
+
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    line-height: 1.5;
+
+    transition: background-color 0.25s ease, color 0.25s ease;
+}
+
+body.dark {
+    background-color: var(--bg-dark);
+    color: var(--text-dark);
+}
+
+h1 {
+    font-size: 1.8rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+}
+
+h2 {
+    font-size: 1.2rem;
+    font-weight: 500;
+    margin: 1.5rem 0 0.75rem;
+    color: var(--accent);
 }
 
 button {
-    padding: 0.5rem 1rem;
+    padding: 0.5rem 0.9rem;
     margin: 0.25rem;
+
+    font-size: 0.9rem;
+    border-radius: 6px;
+    border: none;
+
+    background-color: var(--accent);
+    color: white;
+
+    cursor: pointer;
+    transition: transform 0.1s ease, opacity 0.1s ease;
 }
 
-/* Dark mode override */
-body.dark {
-    background-color: #121212;
-    color: #e0e0e0;
+button:hover {
+    transform: translateY(-1px);
+    opacity: 0.9;
 }
 
 body.dark button {
-    background-color: #2a2a2a;
-    color: #e0e0e0;
-    border: 1px solid #444;
+    background-color: #2d3a5c;
+}
+
+.ghost-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 1.2rem;
+}
+
+.ghost-card {
+    background-color: var(--card-light);
+    border-radius: 14px;
+    padding: 1rem 1.1rem;
+
+    box-shadow: 0 8px 20px var(--shadow-light);
+
+    transition:
+        transform 0.15s ease,
+        box-shadow 0.15s ease,
+        background-color 0.25s ease;
+}
+
+body.dark .ghost-card {
+    background-color: var(--card-dark);
+    box-shadow: 0 8px 20px var(--shadow-dark);
+}
+
+.ghost-name {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 0.6rem;
+    letter-spacing: 0.2px;
+}
+
+.evidence-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+}
+
+.evidence-pill {
+    font-size: 0.75rem;
+    padding: 0.3rem 0.65rem;
+
+    border-radius: 999px;
+    background-color: #e9edf3;
+    color: #333;
+
+    font-weight: 500;
+    letter-spacing: 0.2px;
+}
+
+body.dark .evidence-pill {
+    background-color: #2a2f3a;
+    color: #d6d6d6;
 }

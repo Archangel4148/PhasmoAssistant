@@ -14,8 +14,10 @@
     <h2>Commands</h2>
 
     <!-- Buttons (define the functions in js/main.js) -->
-    <button onclick="sendCommand('start_game')">Start Game</button>
-    <button onclick="sendCommand('end_game')">End Game</button>
-    <button onclick="sendCommand('reset_keywords')">Reset Keywords</button>
+    <button onclick="sendCommand('reset')">Reset</button>
+    <button onclick="sendCommand('dark_mode')">Toggle Dark Mode</button>
+
+    <h2>Possible Ghosts</h2>
+    <div id="ghost-list" class="ghost-grid"></div>
 </body>
 </html>
