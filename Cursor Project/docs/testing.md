@@ -88,6 +88,37 @@ Manual verification:
 - [x] Main and Overlay reflect the same state
 - [x] Overlay looks correct over arbitrary backgrounds
 
+---
+
+## Phase 5 checks
+
+```powershell
+npm run typecheck
+npm run test
+cd src-tauri
+cargo test
+cargo check
+npm run tauri dev
+```
+
+Requires Python 3 on PATH (`py -3`, `python`, or `python3`).
+
+Manual verification:
+
+- App launches even if sidecar fails (optional subsystem)
+- Diagnostics shows sidecar connected and voice status transitioning to Listening
+- Recent events list fills with status / demo commands
+- **Restart Sidecar** kills and relaunches the process
+- Killing Python externally shows an error state without crashing the app
+- Closing Main also stops the sidecar
+
+### Acceptance criteria (Phase 5)
+
+- [x] Rust can launch the sidecar
+- [x] Rust receives structured JSON
+- [x] Sidecar failure does not crash the application
+- [x] Manual restart works
+
 ## Automated tests
 
 Domain logic tests live alongside implementation:
@@ -108,3 +139,10 @@ npm run test:watch
 ```
 
 Future phases will add timer, speed, and voice normalization tests as those domains are implemented.
+
+Rust protocol parsing tests:
+
+```powershell
+cd src-tauri
+cargo test
+```

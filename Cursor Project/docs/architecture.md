@@ -29,7 +29,8 @@ src/
 
 src-tauri/src/
   commands/         # Tauri invoke handlers
-  state/            # Authoritative Rust application state (future)
+  sidecar/          # Voice sidecar process + JSON protocol
+  state/            # Investigation snapshot mirror
 ```
 
 ### Decisions
@@ -79,7 +80,7 @@ All 24 ghosts remain in the list; impossible entries receive `isPossible: false`
 - Actions: `cycleEvidence`, `setEvidenceState`, `resetInvestigation`.
 - Filtering always goes through `domain/ghosts` — UI only reads `isPossible`.
 
-Timers, voice, and diagnostics still use `src/data/mockSubsystems.ts` placeholders.
+Timers still use investigation-store placeholders until Phase 8–9. Voice/diagnostics are live via the sidecar bridge (Phase 5).
 
 ### UI wiring
 
@@ -161,3 +162,33 @@ Defaults use muted slate (`#9aa7b8`) instead of bright white.
 - Timers/timing mode are synced fields but not yet interactive (Phase 8–9).
 - Full Rust-owned mutation path (commands for evidence changes) is still future work; Main mutates locally then publishes.
 - Mimic fake-orbs still not special-cased.
+
+---
+
+## Phase 5 — Python Sidecar (complete)
+
+### Scope
+
+Launch and supervise exactly one Python sidecar process. Parse JSON stdout, forward typed events to React, survive sidecar failures, support manual restart.
+
+### Components
+
+| Piece | Role |
+|-------|------|
+| `sidecar/mock_listener.py` | Mock listener (no Vosk yet); emits status + demo commands |
+| `src-tauri/src/sidecar/` | Process manager + JSON protocol |
+| Tauri commands | `get_sidecar_status`, `restart_voice_sidecar`, `stop_voice_sidecar` |
+| `useVoiceSidecarBridge` | Main-window event subscription |
+| `voiceDiagnosticsStore` | Diagnostics / header voice status |
+
+### Failure handling
+
+- Missing Python / script → `sidecar_error` + voice `error`; app UI remains usable.
+- Unexpected process exit → error status; **Restart Sidecar** relaunches.
+- Closing Main stops the sidecar before process exit.
+
+### Known limitations (Phase 5)
+
+- Mock only — no microphone / Vosk (Phase 6).
+- Demo `voice_command` events are logged in Diagnostics but do not mutate evidence yet (Phase 6).
+- Packaged PyInstaller binary not yet used (dev runs the `.py` script).

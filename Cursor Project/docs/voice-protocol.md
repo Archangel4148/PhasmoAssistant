@@ -2,18 +2,64 @@
 
 ## Status
 
-Not implemented — Phase 5/6.
+Phase 5 — mock sidecar transport implemented. Vosk / wake-word arrive in Phase 6.
 
-## Planned transport
+## Transport
 
-Python Vosk sidecar → **stdout** (one JSON object per line) → Rust parser → Tauri events → React.
+```text
+Python sidecar
+  → stdout (one JSON object per line)
+  → Rust parser (`src-tauri/src/sidecar/protocol.rs`)
+  → Tauri events
+  → React (`useVoiceSidecarBridge`)
+```
 
-## Planned event types
+Diagnostics / logs from Python must use **stderr** only so they do not corrupt the JSON channel.
 
-| Event | Direction | Purpose |
-|-------|-----------|---------|
-| `voice_command` | Sidecar → Rust → React | Normalized semantic command |
-| `voice_status` | Sidecar → Rust → React | Lifecycle: offline, starting, listening, error |
-| `sidecar_error` | Sidecar → Rust → React | Recoverable sidecar failure |
+## Sidecar stdout events
 
-See `SPEC.md` §11–13 for full requirements. This document will be updated when the protocol is implemented.
+| `event` | Fields | Meaning |
+|---------|--------|---------|
+| `voice_status` | `status`: `offline` \| `starting` \| `listening` \| `error` | Lifecycle |
+| `voice_command` | `command`: string, `value`?: string | Normalized semantic command |
+| `sidecar_error` | `message`: string, `recoverable`?: bool | Recoverable failure |
+
+### Examples
+
+```json
+{"event":"voice_status","status":"starting"}
+{"event":"voice_status","status":"listening"}
+{"event":"voice_command","command":"set_evidence","value":"emf5"}
+{"event":"sidecar_error","message":"Simulated sidecar crash","recoverable":true}
+```
+
+## Rust → React events
+
+| Event | Payload | Notes |
+|-------|---------|-------|
+| `voice_status` | `{ status }` | Mirrors sidecar lifecycle |
+| `voice_command` | `{ command, value }` | Phase 5: logged in Diagnostics only |
+| `sidecar_error` | `{ message, recoverable }` | Does not crash the app |
+| `state_changed` | investigation snapshot | Unrelated to voice; Phase 4 sync |
+
+## React → Rust commands
+
+| Command | Purpose |
+|---------|---------|
+| `get_sidecar_status` | Connection + voice status snapshot |
+| `restart_voice_sidecar` | Stop then start the single sidecar process |
+| `stop_voice_sidecar` | Kill sidecar; set voice offline |
+
+## Process model
+
+- Exactly **one** sidecar process (`SidecarManager`).
+- Phase 5 runs `sidecar/mock_listener.py` via `py -3` / `python` / `python3`.
+- Launch failure is reported via `sidecar_error`; the desktop app continues.
+- Closing Main stops the sidecar, destroys Overlay, and exits.
+
+### Mock listener flags
+
+```text
+--demo-interval 15   # emit demo voice_command lines (0 disables)
+--crash-after 0      # optional non-zero exit for failure testing
+```

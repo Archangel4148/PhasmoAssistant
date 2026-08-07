@@ -54,6 +54,10 @@ export function useOverlayInvestigationSync(): void {
         unlisten = await subscribeInvestigationSnapshot((next) => {
           useInvestigationStore.getState().hydrateFromSnapshot(next);
         });
+        if (cancelled) {
+          unlisten();
+          unlisten = undefined;
+        }
       } catch (error: unknown) {
         console.error("Failed to sync overlay investigation state", error);
       }

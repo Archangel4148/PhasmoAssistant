@@ -2,12 +2,6 @@ import { useEffect, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { MainWindow } from "./windows/Main/MainWindow";
 import { OverlayWindow } from "./windows/Overlay/OverlayWindow";
-import { useMainInvestigationSync } from "./hooks/useInvestigationSync";
-
-function MainApp() {
-  useMainInvestigationSync();
-  return <MainWindow />;
-}
 
 function resolveWindowLabel(): string {
   try {
@@ -30,7 +24,7 @@ function App() {
     return <OverlayWindow />;
   }
 
-  return <MainApp />;
+  return <MainWindow />;
 }
 
 export default App;

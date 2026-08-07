@@ -6,11 +6,19 @@ import { GhostPanel } from "../../components/GhostPanel";
 import { Header } from "../../components/Header";
 import { InvestigationToolsPanel } from "../../components/InvestigationToolsPanel";
 import { SettingsDialog } from "../../components/SettingsDialog";
-import { MOCK_SUBSYSTEMS } from "../../data/mockSubsystems";
+import { useMainInvestigationSync } from "../../hooks/useInvestigationSync";
+import { useVoiceSidecarBridge } from "../../hooks/useVoiceSidecarBridge";
+import { restartVoiceSidecar } from "../../services/sidecarApi";
 import { useInvestigationStore } from "../../state/investigationStore";
+import { useVoiceDiagnosticsStore } from "../../state/voiceDiagnosticsStore";
+import type { DiagnosticsSnapshot } from "../../types/diagnostics";
 
 export function MainWindow() {
+  useMainInvestigationSync();
+  useVoiceSidecarBridge();
+
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [restartPending, setRestartPending] = useState(false);
 
   const evidenceEntries = useInvestigationStore((state) => state.evidenceEntries);
   const ghosts = useInvestigationStore((state) => state.ghosts);
@@ -29,12 +37,51 @@ export function MainWindow() {
     (state) => state.huntRemainingSeconds,
   );
 
-  const mock = MOCK_SUBSYSTEMS;
+  const voiceStatus = useVoiceDiagnosticsStore((state) => state.voiceStatus);
+  const sidecarStatus = useVoiceDiagnosticsStore((state) => state.sidecarStatus);
+  const lastError = useVoiceDiagnosticsStore((state) => state.lastError);
+  const recentVoiceEvents = useVoiceDiagnosticsStore(
+    (state) => state.recentVoiceEvents,
+  );
+  const usingMock = useVoiceDiagnosticsStore((state) => state.usingMock);
+  const applyRuntimeStatus = useVoiceDiagnosticsStore(
+    (state) => state.applyRuntimeStatus,
+  );
+  const applySidecarError = useVoiceDiagnosticsStore(
+    (state) => state.applySidecarError,
+  );
+
+  const diagnostics: DiagnosticsSnapshot = {
+    sidecarStatus,
+    microphoneLabel: "Mock listener (no mic)",
+    microphoneAvailable: false,
+    voiceStatus,
+    recentVoiceEvents,
+    lastError,
+  };
+
+  async function handleRestartSidecar(): Promise<void> {
+    setRestartPending(true);
+    try {
+      const status = await restartVoiceSidecar();
+      applyRuntimeStatus(status);
+    } catch (error: unknown) {
+      applySidecarError({
+        message:
+          error instanceof Error
+            ? error.message
+            : "Failed to restart voice sidecar",
+        recoverable: true,
+      });
+    } finally {
+      setRestartPending(false);
+    }
+  }
 
   return (
     <div className="flex min-h-screen flex-col bg-zinc-950">
       <Header
-        voiceStatus={mock.voiceStatus}
+        voiceStatus={voiceStatus}
         possibleGhostCount={possibleGhostCount}
         onOpenSettings={() => setSettingsOpen(true)}
       />
@@ -64,7 +111,14 @@ export function MainWindow() {
           </div>
 
           <div className="xl:col-span-3">
-            <DiagnosticsPanel diagnostics={mock.diagnostics} />
+            <DiagnosticsPanel
+              diagnostics={diagnostics}
+              usingMock={usingMock}
+              restartPending={restartPending}
+              onRestartSidecar={() => {
+                void handleRestartSidecar();
+              }}
+            />
           </div>
         </div>
       </motion.main>

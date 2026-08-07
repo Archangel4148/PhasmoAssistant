@@ -5,6 +5,9 @@ import { StatusBadge } from "./StatusBadge";
 
 interface DiagnosticsPanelProps {
   diagnostics: DiagnosticsSnapshot;
+  usingMock?: boolean;
+  restartPending?: boolean;
+  onRestartSidecar?: () => void;
 }
 
 const SIDECAR_LABEL: Record<SidecarStatus, string> = {
@@ -41,17 +44,37 @@ function DiagnosticRow({
   );
 }
 
-export function DiagnosticsPanel({ diagnostics }: DiagnosticsPanelProps) {
+export function DiagnosticsPanel({
+  diagnostics,
+  usingMock = false,
+  restartPending = false,
+  onRestartSidecar,
+}: DiagnosticsPanelProps) {
   const { sidecarStatus, microphoneLabel, microphoneAvailable, voiceStatus } =
     diagnostics;
 
   return (
     <section className="flex h-full flex-col rounded-xl border border-zinc-800/80 bg-zinc-900/50 p-4 shadow-lg backdrop-blur-sm">
-      <div className="mb-4">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-300">
-          Diagnostics
-        </h2>
-        <p className="text-xs text-zinc-500">Voice pipeline and sidecar status</p>
+      <div className="mb-4 flex items-start justify-between gap-2">
+        <div>
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-300">
+            Diagnostics
+          </h2>
+          <p className="text-xs text-zinc-500">
+            Voice pipeline and sidecar status
+            {usingMock ? " · mock listener" : ""}
+          </p>
+        </div>
+        {onRestartSidecar && (
+          <button
+            type="button"
+            onClick={onRestartSidecar}
+            disabled={restartPending}
+            className="rounded-md border border-zinc-700/80 bg-zinc-800/70 px-2.5 py-1 text-[11px] font-medium text-zinc-300 hover:border-zinc-500 hover:text-zinc-100 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {restartPending ? "Restarting…" : "Restart Sidecar"}
+          </button>
+        )}
       </div>
 
       <div className="divide-y divide-zinc-800/80 rounded-lg border border-zinc-800/60 bg-zinc-950/40 px-3">
@@ -69,7 +92,7 @@ export function DiagnosticsPanel({ diagnostics }: DiagnosticsPanelProps) {
             microphoneAvailable ? (
               <span className="max-w-[140px] truncate">{microphoneLabel}</span>
             ) : (
-              <StatusBadge tone="error">Unavailable</StatusBadge>
+              <StatusBadge tone="neutral">Mock / unused</StatusBadge>
             )
           }
         />
@@ -94,21 +117,25 @@ export function DiagnosticsPanel({ diagnostics }: DiagnosticsPanelProps) {
         <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-zinc-500">
           Recent Events
         </p>
-        <ul className="max-h-48 space-y-2 overflow-y-auto pr-1">
-          {diagnostics.recentVoiceEvents.map((event) => (
-            <li
-              key={event.id}
-              className="rounded-md border border-zinc-800/60 bg-zinc-950/50 px-2.5 py-2"
-            >
-              <p className="font-mono text-[10px] text-zinc-600">
-                {event.timestamp}
-              </p>
-              <p className="mt-0.5 text-xs leading-relaxed text-zinc-400">
-                {event.label}
-              </p>
-            </li>
-          ))}
-        </ul>
+        {diagnostics.recentVoiceEvents.length === 0 ? (
+          <p className="text-xs text-zinc-600">No sidecar events yet.</p>
+        ) : (
+          <ul className="max-h-48 space-y-2 overflow-y-auto pr-1">
+            {diagnostics.recentVoiceEvents.map((event) => (
+              <li
+                key={event.id}
+                className="rounded-md border border-zinc-800/60 bg-zinc-950/50 px-2.5 py-2"
+              >
+                <p className="font-mono text-[10px] text-zinc-600">
+                  {event.timestamp}
+                </p>
+                <p className="mt-0.5 text-xs leading-relaxed text-zinc-400">
+                  {event.label}
+                </p>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     </section>
   );

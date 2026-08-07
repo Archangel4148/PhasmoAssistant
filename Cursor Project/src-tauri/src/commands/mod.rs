@@ -1,3 +1,4 @@
+use crate::sidecar::{SidecarManager, SidecarRuntimeStatus};
 use crate::state::{AppState, InvestigationSnapshot};
 use tauri::{AppHandle, Emitter, State};
 
@@ -30,4 +31,27 @@ pub fn publish_investigation_snapshot(
         .map_err(|error| format!("Failed to emit state_changed: {error}"))?;
 
     Ok(())
+}
+
+#[tauri::command]
+pub fn get_sidecar_status(sidecar: State<'_, SidecarManager>) -> SidecarRuntimeStatus {
+    sidecar.status()
+}
+
+#[tauri::command]
+pub fn restart_voice_sidecar(
+    app: AppHandle,
+    sidecar: State<'_, SidecarManager>,
+) -> Result<SidecarRuntimeStatus, String> {
+    sidecar.restart(&app)?;
+    Ok(sidecar.status())
+}
+
+#[tauri::command]
+pub fn stop_voice_sidecar(
+    app: AppHandle,
+    sidecar: State<'_, SidecarManager>,
+) -> Result<SidecarRuntimeStatus, String> {
+    sidecar.stop(&app)?;
+    Ok(sidecar.status())
 }
