@@ -165,6 +165,43 @@ Defaults use muted slate (`#9aa7b8`) instead of bright white.
 
 ---
 
+## Phase 7 — Ghost Filtering (complete)
+
+### Scope
+
+Finalize the complete 24-ghost dataset, data-driven evidence rules (including Mimic fake orbs), possible/impossible presentation, and domain tests.
+
+### Dataset corrections
+
+- Roster expanded to **30 ghosts** (classic 24 + Obambo, Gallu, Dayan, Kormos, Aswang, Deildegast).
+- **Banshee / Jinn** evidence triples corrected.
+- **Mimic:** journal triple + `alwaysPresentsEvidence: ["ghostOrbs"]`.
+- Smudge durations corrected (most 90s; Spirit 180s; Demon 60s).
+- Speeds/notes refreshed from current guides; `forcedEvidence` markers for Goryo, Deogen, Moroi, Hantu, Obake.
+
+### Filtering rules (domain only)
+
+Effective evidence = journal evidence ∪ `alwaysPresentsEvidence`.
+
+1. Confirmed evidence requires the ghost’s effective set to include it.
+2. Eliminated evidence excludes ghosts that effectively present it (so ruling out Orbs eliminates Mimic).
+3. Manual `eliminatedGhostIds` still force-exclude.
+
+### UI
+
+- Ghost cards fade/scale when ruled out; positions stay stable (`layout`).
+- Evidence chips reflect confirmed/eliminated investigation state.
+- Mimic shows `Orbs*` chip for always-presented fake orbs.
+- **Exclude / Include** toggles manual elimination (no filtering logic in the component).
+
+### Known limitations (Phase 7)
+
+- Reduced-evidence difficulty modes (Nightmare/Insanity) are not filtered yet; `forcedEvidence` is stored for future use.
+- Wiki pages were cross-checked via community cheat sheets where fandom.com blocked automated fetches.
+- Ghost behavioral rules beyond evidence filtering remain informational notes until later hunt/speed phases.
+
+---
+
 ## Phase 5 — Python Sidecar (complete)
 
 ### Scope

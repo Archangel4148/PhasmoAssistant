@@ -149,6 +149,30 @@ Manual verification:
 - [x] Voice status is visible
 - [x] Missing model is handled gracefully
 
+---
+
+## Phase 7 checks
+
+```powershell
+npm run typecheck
+npm run test
+```
+
+Manual verification (`npm run tauri dev`):
+
+- Confirming Ghost Orbs keeps Mimic possible even though Orbs are not in its journal triple
+- Eliminating Ghost Orbs rules out Mimic
+- Confirming UV + Orbs + DOTS leaves only Banshee
+- New ghosts (Obambo, Gallu, Dayan, Kormos, Aswang, Deildegast) appear in the grid
+- Impossible ghosts stay visible at ~20% opacity with stable positions
+- Exclude/Include on a card manually removes/restores that ghost
+- Evidence chips on cards highlight confirmed/eliminated states
+
+### Acceptance criteria (Phase 7)
+
+- [x] Filtering is correct for the complete dataset
+- [x] Ghost logic exists in data/domain code rather than UI components
+
 ## Automated tests
 
 Domain logic tests live alongside implementation:

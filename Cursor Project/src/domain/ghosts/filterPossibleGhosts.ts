@@ -1,6 +1,7 @@
 import type { EvidenceMap } from "../evidence/evidenceState";
 import type { Ghost } from "../../types/ghost";
 import type { EvidenceId } from "../../types/evidence";
+import { ghostHasEvidence } from "./evidenceSet";
 
 export function isGhostPossible(
   ghost: Ghost,
@@ -11,17 +12,15 @@ export function isGhostPossible(
     return false;
   }
 
-  for (const evidenceId of ghost.evidence) {
-    if (evidence[evidenceId]?.state === "eliminated") {
-      return false;
-    }
-  }
-
   for (const [id, entry] of Object.entries(evidence) as [
     EvidenceId,
     EvidenceMap[EvidenceId],
   ][]) {
-    if (entry.state === "confirmed" && !ghost.evidence.includes(id)) {
+    if (entry.state === "eliminated" && ghostHasEvidence(ghost, id)) {
+      return false;
+    }
+
+    if (entry.state === "confirmed" && !ghostHasEvidence(ghost, id)) {
       return false;
     }
   }

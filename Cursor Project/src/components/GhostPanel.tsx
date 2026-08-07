@@ -1,11 +1,18 @@
+import type { EvidenceEntry } from "../types/evidence";
 import type { GhostDisplayItem } from "../types/ghost";
 import { GhostCard } from "./GhostCard";
 
 interface GhostPanelProps {
   ghosts: GhostDisplayItem[];
+  evidenceEntries: EvidenceEntry[];
+  onToggleGhostEliminated: (ghostId: string) => void;
 }
 
-export function GhostPanel({ ghosts }: GhostPanelProps) {
+export function GhostPanel({
+  ghosts,
+  evidenceEntries,
+  onToggleGhostEliminated,
+}: GhostPanelProps) {
   const possibleCount = ghosts.filter((ghost) => ghost.isPossible).length;
 
   return (
@@ -16,7 +23,8 @@ export function GhostPanel({ ghosts }: GhostPanelProps) {
             Ghosts
           </h2>
           <p className="text-xs text-zinc-500">
-            {possibleCount} of {ghosts.length} remain possible
+            {possibleCount} of {ghosts.length} remain possible · Exclude toggles
+            manual elimination
           </p>
         </div>
       </div>
@@ -24,7 +32,12 @@ export function GhostPanel({ ghosts }: GhostPanelProps) {
       <div className="min-h-0 flex-1 overflow-y-auto pr-1">
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
           {ghosts.map((ghost) => (
-            <GhostCard key={ghost.id} ghost={ghost} />
+            <GhostCard
+              key={ghost.id}
+              ghost={ghost}
+              evidenceEntries={evidenceEntries}
+              onToggleEliminated={onToggleGhostEliminated}
+            />
           ))}
         </div>
       </div>

@@ -51,6 +51,7 @@ interface InvestigationStoreState extends InvestigationView {
   ) => void;
   setOverlayAppearance: (patch: Partial<OverlayAppearanceSettings>) => void;
   applyVoiceAction: (action: VoiceAction) => void;
+  toggleGhostEliminated: (ghostId: string) => void;
   resetInvestigation: () => void;
 }
 
@@ -81,7 +82,7 @@ function buildGhostView(
     evidence,
     eliminatedGhostIds,
     evidenceEntries: evidenceMapToEntries(evidence),
-    ghosts: buildGhostDisplayItems(GHOSTS, possibleGhostIds),
+    ghosts: buildGhostDisplayItems(GHOSTS, possibleGhostIds, eliminatedGhostIds),
     possibleGhostCount: possibleGhostIds.size,
   };
 }
@@ -333,6 +334,22 @@ export const useInvestigationStore = create<InvestigationStoreState>((set, get) 
       }
     }
 
+    publishIfNeeded(get());
+  },
+
+  toggleGhostEliminated: (ghostId) => {
+    const previous = get();
+    const already = previous.eliminatedGhostIds.includes(ghostId);
+    const eliminatedGhostIds = already
+      ? previous.eliminatedGhostIds.filter((id) => id !== ghostId)
+      : [...previous.eliminatedGhostIds, ghostId];
+
+    const next = buildInvestigationView(
+      previous.evidence,
+      eliminatedGhostIds,
+      keepSessionExtras(previous),
+    );
+    set({ ...next, isSyncPublisher: previous.isSyncPublisher });
     publishIfNeeded(get());
   },
 

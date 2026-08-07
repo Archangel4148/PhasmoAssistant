@@ -12,7 +12,7 @@ export const DEFAULT_HUNT_COOLDOWN_SECONDS = 25;
 const EVIDENCE_PHRASES: ReadonlyArray<{ id: EvidenceId; phrases: string[] }> = [
   {
     id: "emf5",
-    phrases: ["emf five", "emf 5", "emf level five", "emf level 5", "level five emf", "level 5 emf"],
+    phrases: ["emf five", "emf 5", "emf level five", "emf level 5", "emf", "level 5"],
   },
   {
     id: "spiritBox",

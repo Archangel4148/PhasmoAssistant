@@ -26,6 +26,9 @@ export function MainWindow() {
     (state) => state.possibleGhostCount,
   );
   const cycleEvidence = useInvestigationStore((state) => state.cycleEvidence);
+  const toggleGhostEliminated = useInvestigationStore(
+    (state) => state.toggleGhostEliminated,
+  );
   const timingMode = useInvestigationStore((state) => state.timingMode);
   const currentGhostSpeedMps = useInvestigationStore(
     (state) => state.currentGhostSpeedMps,
@@ -109,7 +112,11 @@ export function MainWindow() {
           </div>
 
           <div className="xl:col-span-6">
-            <GhostPanel ghosts={ghosts} />
+            <GhostPanel
+              ghosts={ghosts}
+              evidenceEntries={evidenceEntries}
+              onToggleGhostEliminated={toggleGhostEliminated}
+            />
           </div>
 
           <div className="xl:col-span-3">
