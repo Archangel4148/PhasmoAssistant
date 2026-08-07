@@ -119,6 +119,36 @@ Manual verification:
 - [x] Sidecar failure does not crash the application
 - [x] Manual restart works
 
+---
+
+## Phase 6 checks
+
+```powershell
+pip install -r sidecar/requirements.txt
+# Place vosk-model-small-en-us-0.15 under sidecar/models/
+npm run typecheck
+npm run test
+cd src-tauri; cargo test; cargo check
+npm run tauri dev
+```
+
+Manual verification:
+
+- Without model: Diagnostics shows setup error; app otherwise works
+- With model: say `trigger emf five` → EMF confirms + overlay toast
+- Speech without `trigger` does nothing
+- `trigger smudge` / `trigger timer` update tools state
+- Voice status visible in header/Diagnostics
+- Restart Sidecar recovers after fixing model/deps
+
+### Acceptance criteria (Phase 6)
+
+- [x] Listener recognizes wake word
+- [x] Commands are ignored without wake word
+- [x] Supported commands update application state
+- [x] Voice status is visible
+- [x] Missing model is handled gracefully
+
 ## Automated tests
 
 Domain logic tests live alongside implementation:

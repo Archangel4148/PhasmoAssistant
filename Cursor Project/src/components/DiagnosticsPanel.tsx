@@ -62,7 +62,7 @@ export function DiagnosticsPanel({
           </h2>
           <p className="text-xs text-zinc-500">
             Voice pipeline and sidecar status
-            {usingMock ? " · mock listener" : ""}
+            {usingMock ? " · mock listener" : " · vosk"}
           </p>
         </div>
         {onRestartSidecar && (
@@ -91,8 +91,10 @@ export function DiagnosticsPanel({
           value={
             microphoneAvailable ? (
               <span className="max-w-[140px] truncate">{microphoneLabel}</span>
-            ) : (
+            ) : usingMock ? (
               <StatusBadge tone="neutral">Mock / unused</StatusBadge>
+            ) : (
+              <StatusBadge tone="warning">Unavailable</StatusBadge>
             )
           }
         />

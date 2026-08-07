@@ -12,6 +12,7 @@ import {
   type EvidenceMap,
 } from "../domain/evidence";
 import { EVIDENCE_BY_ID } from "../data/evidence";
+import type { VoiceAction } from "../domain/voice";
 import type { EvidenceEntry, EvidenceId } from "../types/evidence";
 import type { GhostDisplayItem } from "../types/ghost";
 import type { InvestigationSnapshot, OverlayToast } from "../types/sync";
@@ -49,6 +50,7 @@ interface InvestigationStoreState extends InvestigationView {
     voiceConfirmed?: boolean,
   ) => void;
   setOverlayAppearance: (patch: Partial<OverlayAppearanceSettings>) => void;
+  applyVoiceAction: (action: VoiceAction) => void;
   resetInvestigation: () => void;
 }
 
@@ -263,6 +265,74 @@ export const useInvestigationStore = create<InvestigationStoreState>((set, get) 
       overlayAppearance: nextAppearance,
       isSyncPublisher: previous.isSyncPublisher,
     });
+    publishIfNeeded(get());
+  },
+
+  applyVoiceAction: (action) => {
+    const previous = get();
+
+    switch (action.type) {
+      case "confirm_evidence": {
+        const nextEvidence = setEvidenceEntryState(
+          previous.evidence,
+          action.evidenceId,
+          "confirmed",
+          true,
+        );
+        const toast = createEvidenceToast(action.evidenceId, "confirmed");
+        const toasts = trimToasts(
+          toast ? [...previous.toasts, toast] : previous.toasts,
+        );
+        const next = buildInvestigationView(
+          nextEvidence,
+          previous.eliminatedGhostIds,
+          { ...keepSessionExtras(previous), toasts },
+        );
+        set({ ...next, isSyncPublisher: previous.isSyncPublisher });
+        break;
+      }
+      case "start_smudge": {
+        const toast: OverlayToast = {
+          id: `toast-smudge-${Date.now()}`,
+          message: "✓ Smudge Started",
+          createdAtMs: Date.now(),
+        };
+        set({
+          smudgeRemainingSeconds: action.durationSeconds,
+          toasts: trimToasts([...previous.toasts, toast]),
+          isSyncPublisher: previous.isSyncPublisher,
+        });
+        break;
+      }
+      case "toggle_timing_mode": {
+        const enabled = !previous.timingMode;
+        const toast: OverlayToast = {
+          id: `toast-timing-${Date.now()}`,
+          message: enabled ? "✓ Timing Started" : "✓ Timing Stopped",
+          createdAtMs: Date.now(),
+        };
+        set({
+          timingMode: enabled,
+          toasts: trimToasts([...previous.toasts, toast]),
+          isSyncPublisher: previous.isSyncPublisher,
+        });
+        break;
+      }
+      case "start_hunt_cooldown": {
+        const toast: OverlayToast = {
+          id: `toast-hunt-${Date.now()}`,
+          message: "✓ Hunt Cooldown Started",
+          createdAtMs: Date.now(),
+        };
+        set({
+          huntRemainingSeconds: action.durationSeconds,
+          toasts: trimToasts([...previous.toasts, toast]),
+          isSyncPublisher: previous.isSyncPublisher,
+        });
+        break;
+      }
+    }
+
     publishIfNeeded(get());
   },
 

@@ -1,10 +1,12 @@
 import { useEffect } from "react";
+import { resolveVoiceCommand } from "../domain/voice";
 import {
   fetchSidecarStatus,
   subscribeSidecarError,
   subscribeVoiceCommand,
   subscribeVoiceStatus,
 } from "../services/sidecarApi";
+import { useInvestigationStore } from "../state/investigationStore";
 import { useVoiceDiagnosticsStore } from "../state/voiceDiagnosticsStore";
 
 /**
@@ -39,8 +41,18 @@ export function useVoiceSidecarBridge(): void {
         );
         track(
           await subscribeVoiceCommand((payload) => {
-            // Phase 5: log only. Phase 6 applies commands to investigation state.
             useVoiceDiagnosticsStore.getState().applyVoiceCommand(payload);
+
+            const action = resolveVoiceCommand(payload.command, payload.value);
+            if (!action) {
+              useVoiceDiagnosticsStore
+                .getState()
+                .pushEvent("Voice ignored — no matching command");
+              return;
+            }
+
+            // Domain resolves the action; store applies it (no parsing in UI components).
+            useInvestigationStore.getState().applyVoiceAction(action);
           }),
         );
         track(

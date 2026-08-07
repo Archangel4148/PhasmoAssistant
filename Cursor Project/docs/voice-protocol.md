@@ -2,64 +2,78 @@
 
 ## Status
 
-Phase 5 — mock sidecar transport implemented. Vosk / wake-word arrive in Phase 6.
+Phase 6 — Vosk listener with wake word. Domain normalizes utterances into investigation actions.
 
 ## Transport
 
 ```text
-Python sidecar
-  → stdout (one JSON object per line)
-  → Rust parser (`src-tauri/src/sidecar/protocol.rs`)
-  → Tauri events
-  → React (`useVoiceSidecarBridge`)
+Microphone
+  → Vosk (sidecar/vosk_listener.py)
+  → wake word "trigger"
+  → voice_command utterance
+  → Rust event
+  → TypeScript domain resolveVoiceCommand
+  → investigation store applyVoiceAction
 ```
 
-Diagnostics / logs from Python must use **stderr** only so they do not corrupt the JSON channel.
+Diagnostics / logs from Python must use **stderr** only.
 
 ## Sidecar stdout events
 
 | `event` | Fields | Meaning |
 |---------|--------|---------|
 | `voice_status` | `status`: `offline` \| `starting` \| `listening` \| `error` | Lifecycle |
-| `voice_command` | `command`: string, `value`?: string | Normalized semantic command |
-| `sidecar_error` | `message`: string, `recoverable`?: bool | Recoverable failure |
+| `voice_command` | `command`, `value?` | Semantic or `utterance` payload |
+| `sidecar_error` | `message`, `recoverable?` | Recoverable failure / setup help |
 
-### Examples
+### Vosk utterance example
 
 ```json
-{"event":"voice_status","status":"starting"}
-{"event":"voice_status","status":"listening"}
-{"event":"voice_command","command":"set_evidence","value":"emf5"}
-{"event":"sidecar_error","message":"Simulated sidecar crash","recoverable":true}
+{"event":"voice_command","command":"utterance","value":"emf five"}
 ```
 
-## Rust → React events
+### Semantic examples (mock / tests)
 
-| Event | Payload | Notes |
-|-------|---------|-------|
-| `voice_status` | `{ status }` | Mirrors sidecar lifecycle |
-| `voice_command` | `{ command, value }` | Phase 5: logged in Diagnostics only |
-| `sidecar_error` | `{ message, recoverable }` | Does not crash the app |
-| `state_changed` | investigation snapshot | Unrelated to voice; Phase 4 sync |
+```json
+{"event":"voice_command","command":"set_evidence","value":"emf5"}
+{"event":"voice_command","command":"smudge"}
+{"event":"voice_command","command":"timer"}
+```
+
+## Wake word
+
+Commands are only emitted after `trigger` in the same utterance, or within ~4 seconds after a bare `trigger`.
+
+Ignored without wake word.
+
+## Domain resolution (`src/domain/voice`)
+
+| Input | Action |
+|-------|--------|
+| evidence phrases (`emf five`, `spirit box`, …) | confirm evidence (voiceConfirmed) |
+| `smudge` | start smudge timer (180s) |
+| `timer` / timing phrases | toggle timing mode |
+| `hunt cooldown` phrases | start hunt cooldown (25s) |
+| unrelated text | ignored |
+
+## Missing model / deps
+
+Sidecar emits `sidecar_error` with setup instructions, sets `voice_status: error`, exits 0. App UI remains usable. Use **Restart Sidecar** after installing:
+
+```powershell
+pip install -r sidecar/requirements.txt
+# extract vosk-model-small-en-us-0.15 into sidecar/models/
+```
 
 ## React → Rust commands
 
 | Command | Purpose |
 |---------|---------|
-| `get_sidecar_status` | Connection + voice status snapshot |
-| `restart_voice_sidecar` | Stop then start the single sidecar process |
-| `stop_voice_sidecar` | Kill sidecar; set voice offline |
+| `get_sidecar_status` | Connection + voice status |
+| `restart_voice_sidecar` | Relaunch single sidecar process |
+| `stop_voice_sidecar` | Stop sidecar |
 
-## Process model
+## Process selection
 
-- Exactly **one** sidecar process (`SidecarManager`).
-- Phase 5 runs `sidecar/mock_listener.py` via `py -3` / `python` / `python3`.
-- Launch failure is reported via `sidecar_error`; the desktop app continues.
-- Closing Main stops the sidecar, destroys Overlay, and exits.
-
-### Mock listener flags
-
-```text
---demo-interval 15   # emit demo voice_command lines (0 disables)
---crash-after 0      # optional non-zero exit for failure testing
-```
+1. `sidecar/vosk_listener.py` (default)
+2. `mock_listener.py` if Vosk script missing or `PHASMO_VOICE_MOCK=1`

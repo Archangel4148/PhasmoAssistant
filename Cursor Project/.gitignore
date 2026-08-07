@@ -21,4 +21,8 @@ dist-ssr
 *.ntvs*
 *.njsproj
 *.sln
-*.sw?
+sidecar/models/**
+!sidecar/models/README.md
+*.pyc
+__pycache__/
+

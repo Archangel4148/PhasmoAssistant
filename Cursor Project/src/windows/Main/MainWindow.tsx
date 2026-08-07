@@ -53,8 +53,10 @@ export function MainWindow() {
 
   const diagnostics: DiagnosticsSnapshot = {
     sidecarStatus,
-    microphoneLabel: "Mock listener (no mic)",
-    microphoneAvailable: false,
+    microphoneLabel: usingMock
+      ? "Mock listener (no mic)"
+      : "System default input",
+    microphoneAvailable: !usingMock && voiceStatus === "listening",
     voiceStatus,
     recentVoiceEvents,
     lastError,

@@ -192,3 +192,28 @@ Launch and supervise exactly one Python sidecar process. Parse JSON stdout, forw
 - Mock only — no microphone / Vosk (Phase 6).
 - Demo `voice_command` events are logged in Diagnostics but do not mutate evidence yet (Phase 6).
 - Packaged PyInstaller binary not yet used (dev runs the `.py` script).
+
+---
+
+## Phase 6 — Voice Recognition (complete)
+
+### Scope
+
+Vosk-based local recognition with wake word `trigger`, domain command normalization, and investigation state updates.
+
+### Pipeline
+
+```text
+vosk_listener.py → JSON utterance → Rust event → resolveVoiceCommand → applyVoiceAction
+```
+
+- Wake word gating lives in Python.
+- Phrase → action mapping lives in `src/domain/voice` (tested; UI does not parse speech).
+- Missing model/deps disable voice only; Diagnostics shows setup text.
+
+### Known limitations (Phase 6)
+
+- Timers started by voice are display countdowns in state, not yet deadline-accurate (Phase 8).
+- Microphone device picker not implemented (Phase 10 settings).
+- PyInstaller packaging still deferred.
+- Small English Vosk model must be downloaded manually into `sidecar/models/`.

@@ -106,8 +106,8 @@ impl SidecarManager {
     pub fn start(&self, app: &AppHandle) -> Result<(), String> {
         self.stop(app)?;
 
-        let script = resolve_mock_script_path(app)?;
-        let mut command = build_python_command(&script)?;
+        let (script, using_mock) = resolve_sidecar_script(app)?;
+        let mut command = build_python_command(&script, using_mock)?;
 
         #[cfg(windows)]
         {
@@ -149,7 +149,7 @@ impl SidecarManager {
             guard.status.connection = SidecarConnectionStatus::Connected;
             guard.status.voice_status = VoiceStatus::Starting;
             guard.status.last_error = None;
-            guard.status.using_mock = true;
+            guard.status.using_mock = using_mock;
             generation
         };
 
@@ -257,34 +257,53 @@ impl Default for SidecarManager {
     }
 }
 
-fn resolve_mock_script_path(app: &AppHandle) -> Result<PathBuf, String> {
+fn resolve_sidecar_script(app: &AppHandle) -> Result<(PathBuf, bool), String> {
+    let force_mock = std::env::var("PHASMO_VOICE_MOCK")
+        .map(|value| value == "1" || value.eq_ignore_ascii_case("true"))
+        .unwrap_or(false);
+
+    let vosk = candidate_scripts(app, "vosk_listener.py");
+    let mock = candidate_scripts(app, "mock_listener.py");
+
+    if force_mock {
+        let path = mock.into_iter().find(|path| path.is_file()).ok_or_else(|| {
+            "mock_listener.py not found (PHASMO_VOICE_MOCK=1)".to_string()
+        })?;
+        return Ok((path, true));
+    }
+
+    if let Some(path) = vosk.into_iter().find(|path| path.is_file()) {
+        return Ok((path, false));
+    }
+
+    let path = mock.into_iter().find(|path| path.is_file()).ok_or_else(|| {
+        "No sidecar script found. Expected sidecar/vosk_listener.py".to_string()
+    })?;
+    Ok((path, true))
+}
+
+fn candidate_scripts(app: &AppHandle, file_name: &str) -> Vec<PathBuf> {
     let mut candidates: Vec<PathBuf> = Vec::new();
 
     let mut from_manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     from_manifest.pop();
     from_manifest.push("sidecar");
-    from_manifest.push("mock_listener.py");
+    from_manifest.push(file_name);
     candidates.push(from_manifest);
 
     if let Ok(cwd) = std::env::current_dir() {
-        candidates.push(cwd.join("sidecar").join("mock_listener.py"));
-        candidates.push(cwd.join("..").join("sidecar").join("mock_listener.py"));
+        candidates.push(cwd.join("sidecar").join(file_name));
+        candidates.push(cwd.join("..").join("sidecar").join(file_name));
     }
 
     if let Ok(resource) = app.path().resource_dir() {
-        candidates.push(resource.join("sidecar").join("mock_listener.py"));
+        candidates.push(resource.join("sidecar").join(file_name));
     }
 
     candidates
-        .into_iter()
-        .find(|path| path.is_file())
-        .ok_or_else(|| {
-            "mock_listener.py not found. Expected at <project>/sidecar/mock_listener.py"
-                .to_string()
-        })
 }
 
-fn build_python_command(script: &Path) -> Result<Command, String> {
+fn build_python_command(script: &Path, using_mock_script: bool) -> Result<Command, String> {
     let script_str = script
         .to_str()
         .ok_or_else(|| "sidecar script path is not valid UTF-8".to_string())?;
@@ -302,8 +321,11 @@ fn build_python_command(script: &Path) -> Result<Command, String> {
                 command.arg(arg);
             }
             command.arg(script_str);
-            command.arg("--demo-interval");
-            command.arg("15");
+            if using_mock_script {
+                // Legacy mock listener demo cadence for Diagnostics without a mic.
+                command.arg("--demo-interval");
+                command.arg("15");
+            }
             return Ok(command);
         }
     }
@@ -401,8 +423,24 @@ fn spawn_exit_watcher(app: AppHandle, generation: u64) {
             };
 
             if let Some(code) = exit_code {
-                // code: Option<i32>
-                manager.mark_exited(&app, generation, code);
+                if code == Some(0) {
+                    // Graceful exit (e.g. missing model already reported via sidecar_error).
+                    if let Ok(mut guard) = manager.inner.lock() {
+                        if guard.generation == generation {
+                            guard.process = None;
+                            if !matches!(
+                                guard.status.voice_status,
+                                VoiceStatus::Error | VoiceStatus::Offline
+                            ) {
+                                guard.status.connection =
+                                    SidecarConnectionStatus::Disconnected;
+                                guard.status.voice_status = VoiceStatus::Offline;
+                            }
+                        }
+                    }
+                } else {
+                    manager.mark_exited(&app, generation, code);
+                }
                 return;
             }
         }
