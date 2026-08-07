@@ -1,0 +1,115 @@
+import type { ReactNode } from "react";
+import type { DiagnosticsSnapshot, SidecarStatus } from "../types/diagnostics";
+import type { VoiceStatus } from "../types/voice";
+import { StatusBadge } from "./StatusBadge";
+
+interface DiagnosticsPanelProps {
+  diagnostics: DiagnosticsSnapshot;
+}
+
+const SIDECAR_LABEL: Record<SidecarStatus, string> = {
+  connected: "Connected",
+  disconnected: "Disconnected",
+  error: "Error",
+};
+
+const SIDECAR_TONE = {
+  connected: "success",
+  disconnected: "neutral",
+  error: "error",
+} as const;
+
+const VOICE_LABEL: Record<VoiceStatus, string> = {
+  offline: "Offline",
+  starting: "Starting",
+  listening: "Listening",
+  error: "Error",
+};
+
+function DiagnosticRow({
+  label,
+  value,
+}: {
+  label: string;
+  value: ReactNode;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 py-1.5">
+      <span className="text-xs text-zinc-500">{label}</span>
+      <span className="text-right text-xs text-zinc-300">{value}</span>
+    </div>
+  );
+}
+
+export function DiagnosticsPanel({ diagnostics }: DiagnosticsPanelProps) {
+  const { sidecarStatus, microphoneLabel, microphoneAvailable, voiceStatus } =
+    diagnostics;
+
+  return (
+    <section className="flex h-full flex-col rounded-xl border border-zinc-800/80 bg-zinc-900/50 p-4 shadow-lg backdrop-blur-sm">
+      <div className="mb-4">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-300">
+          Diagnostics
+        </h2>
+        <p className="text-xs text-zinc-500">Voice pipeline and sidecar status</p>
+      </div>
+
+      <div className="divide-y divide-zinc-800/80 rounded-lg border border-zinc-800/60 bg-zinc-950/40 px-3">
+        <DiagnosticRow
+          label="Sidecar"
+          value={
+            <StatusBadge tone={SIDECAR_TONE[sidecarStatus]}>
+              {SIDECAR_LABEL[sidecarStatus]}
+            </StatusBadge>
+          }
+        />
+        <DiagnosticRow
+          label="Microphone"
+          value={
+            microphoneAvailable ? (
+              <span className="max-w-[140px] truncate">{microphoneLabel}</span>
+            ) : (
+              <StatusBadge tone="error">Unavailable</StatusBadge>
+            )
+          }
+        />
+        <DiagnosticRow
+          label="Voice Status"
+          value={VOICE_LABEL[voiceStatus]}
+        />
+      </div>
+
+      {diagnostics.lastError && (
+        <div className="mt-3 rounded-lg border border-red-500/30 bg-red-500/5 p-3">
+          <p className="text-[11px] font-medium uppercase tracking-wide text-red-400">
+            Last Error
+          </p>
+          <p className="mt-1 text-xs leading-relaxed text-red-300/90">
+            {diagnostics.lastError}
+          </p>
+        </div>
+      )}
+
+      <div className="mt-4 min-h-0 flex-1">
+        <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-zinc-500">
+          Recent Events
+        </p>
+        <ul className="max-h-48 space-y-2 overflow-y-auto pr-1">
+          {diagnostics.recentVoiceEvents.map((event) => (
+            <li
+              key={event.id}
+              className="rounded-md border border-zinc-800/60 bg-zinc-950/50 px-2.5 py-2"
+            >
+              <p className="font-mono text-[10px] text-zinc-600">
+                {event.timestamp}
+              </p>
+              <p className="mt-0.5 text-xs leading-relaxed text-zinc-400">
+                {event.label}
+              </p>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </section>
+  );
+}

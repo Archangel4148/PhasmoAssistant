@@ -1,44 +1,68 @@
+import { useState } from "react";
 import { motion } from "framer-motion";
-import { useAppStore } from "../../state/appStore";
+import { DiagnosticsPanel } from "../../components/DiagnosticsPanel";
+import { EvidencePanel } from "../../components/EvidencePanel";
+import { GhostPanel } from "../../components/GhostPanel";
+import { Header } from "../../components/Header";
+import { InvestigationToolsPanel } from "../../components/InvestigationToolsPanel";
+import { SettingsDialog } from "../../components/SettingsDialog";
+import { MOCK_SUBSYSTEMS } from "../../data/mockSubsystems";
+import { useInvestigationStore } from "../../state/investigationStore";
 
 export function MainWindow() {
-  const ready = useAppStore((state) => state.ready);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+
+  const evidenceEntries = useInvestigationStore((state) => state.evidenceEntries);
+  const ghosts = useInvestigationStore((state) => state.ghosts);
+  const possibleGhostCount = useInvestigationStore(
+    (state) => state.possibleGhostCount,
+  );
+  const cycleEvidence = useInvestigationStore((state) => state.cycleEvidence);
+
+  const mock = MOCK_SUBSYSTEMS;
 
   return (
-    <div className="flex min-h-screen flex-col">
-      <header className="border-b border-zinc-800 bg-zinc-900/80 px-6 py-4 backdrop-blur-sm">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-lg font-semibold tracking-tight text-zinc-100">
-              Phasmophobia Companion
-            </h1>
-            <p className="text-sm text-zinc-400">
-              Investigation control panel
-            </p>
-          </div>
-          <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-300">
-            {ready ? "Ready" : "Loading"}
-          </span>
-        </div>
-      </header>
+    <div className="flex min-h-screen flex-col bg-zinc-950">
+      <Header
+        voiceStatus={mock.voiceStatus}
+        possibleGhostCount={possibleGhostCount}
+        onOpenSettings={() => setSettingsOpen(true)}
+      />
 
-      <main className="flex flex-1 items-center justify-center p-8">
-        <motion.section
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.35, ease: "easeOut" }}
-          className="max-w-lg rounded-xl border border-zinc-800 bg-zinc-900/60 p-8 text-center shadow-xl"
-        >
-          <h2 className="text-xl font-medium text-zinc-100">
-            Main window scaffold
-          </h2>
-          <p className="mt-3 text-sm leading-relaxed text-zinc-400">
-            Phase 1 is complete. The Tauri shell, React frontend, Tailwind,
-            Framer Motion, and Zustand are wired up and ready for Phase 2 UI
-            work.
-          </p>
-        </motion.section>
-      </main>
+      <motion.main
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.3, ease: "easeOut" }}
+        className="flex flex-1 flex-col gap-4 p-4 lg:p-6"
+      >
+        <div className="grid flex-1 gap-4 xl:grid-cols-12">
+          <div className="flex flex-col gap-4 xl:col-span-3">
+            <EvidencePanel
+              evidence={evidenceEntries}
+              onEvidenceCycle={cycleEvidence}
+            />
+            <InvestigationToolsPanel
+              timingMode={mock.timingMode}
+              currentGhostSpeedMps={mock.currentGhostSpeedMps}
+              smudgeRemainingSeconds={mock.smudgeRemainingSeconds}
+              huntRemainingSeconds={mock.huntRemainingSeconds}
+            />
+          </div>
+
+          <div className="xl:col-span-6">
+            <GhostPanel ghosts={ghosts} />
+          </div>
+
+          <div className="xl:col-span-3">
+            <DiagnosticsPanel diagnostics={mock.diagnostics} />
+          </div>
+        </div>
+      </motion.main>
+
+      <SettingsDialog
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+      />
     </div>
   );
 }
