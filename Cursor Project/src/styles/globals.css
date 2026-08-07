@@ -11,3 +11,11 @@ body {
 #root {
   @apply min-h-screen;
 }
+
+html.overlay-window,
+html.overlay-window body,
+html.overlay-window #root {
+  background: transparent !important;
+  min-height: 100%;
+  overflow: hidden;
+}

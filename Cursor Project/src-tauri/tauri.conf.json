@@ -12,11 +12,29 @@
   "app": {
     "windows": [
       {
+        "label": "main",
         "title": "Phasmophobia Companion",
         "width": 1280,
         "height": 800,
         "minWidth": 960,
         "minHeight": 640
+      },
+      {
+        "label": "overlay",
+        "title": "Phasmophobia Overlay",
+        "width": 1920,
+        "height": 1080,
+        "maximized": true,
+        "transparent": true,
+        "decorations": false,
+        "shadow": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "resizable": false,
+        "focus": false,
+        "focusable": false,
+        "visible": true,
+        "fullscreen": false
       }
     ],
     "security": {

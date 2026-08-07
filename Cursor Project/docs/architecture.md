@@ -34,9 +34,9 @@ src-tauri/src/
 
 ### Decisions
 
-- Rust will own authoritative state; Zustand stores in each window are synchronized views (Rust sync not yet wired).
+- Rust mirrors investigation snapshots for multi-window sync; TypeScript domain remains the single filtering implementation.
 - Tailwind v4 is integrated via `@tailwindcss/vite` (no separate PostCSS config).
-- The default Tauri template `greet` command remains as a placeholder IPC example until real commands are added in later phases.
+- Zustand stores in each window are synchronized views fed by Rust `state_changed` events.
 
 ---
 
@@ -98,3 +98,66 @@ Vitest unit tests cover evidence cycling and ghost filtering (`npm run test`). N
 - Timers, speed calculator, and diagnostics remain static placeholders.
 - Overlay window not created.
 - Mimic fake-orbs behavior is not special-cased yet (Phase 7 evidence rules).
+
+---
+
+## Phase 4 — Overlay (complete)
+
+### Scope
+
+Second Tauri window: transparent HUD over the game, synchronized with Main investigation state.
+
+### Window configuration
+
+Overlay (`label: overlay`):
+
+- `transparent`, `decorations: false`, `shadow: false`
+- `alwaysOnTop`, `skipTaskbar`
+- `focus: false`, `focusable: false`
+- Maximized by default
+- Rust `setup` calls `set_ignore_cursor_events(true)` for click-through
+- Closing the Main window destroys the Overlay and exits the process (so the HUD is never left orphaned)
+
+Main remains a normal decorated desktop window.
+
+### State sync
+
+```text
+Main Zustand mutation
+    → publish_investigation_snapshot (Tauri command)
+    → Rust AppState mirror
+    → emit state_changed
+    → Overlay hydrateFromSnapshot
+    → Overlay Zustand view (domain filtering reapplied from evidence)
+```
+
+- Ghost filtering still lives only in TypeScript domain code.
+- Rust stores a serializable snapshot (evidence map + overlay fields + toasts); it does not reimplement filtering.
+- Main is the sync publisher; Overlay is read-only listener (+ initial fetch).
+
+### Overlay UI
+
+| Region | Content |
+|--------|---------|
+| Top left → right | Horizontal possible-ghost ticker (softer default color; scrolls when overflowing; clears timer corner) |
+| Top right | Smudge / hunt timers (idle ~40% opacity, active ~90%) |
+| Center | Timing mode pulse (when active) |
+| Bottom right | Toasts (~2.5s TTL), e.g. evidence confirmed |
+
+Transparent page background via `html.overlay-window` CSS so chrome outside HUD elements does not paint.
+
+### Overlay appearance settings
+
+Settings → **Overlay HUD** (synced Main → Overlay via the same snapshot):
+
+- Ghost text color (color picker, hex field, soft presets)
+- Ticker speed (slider + numeric, 8–80 px/s; default 26)
+
+Defaults use muted slate (`#9aa7b8`) instead of bright white.
+
+### Known limitations (Phase 4)
+
+- Overlay position/scale persistence is deferred (Phase 10).
+- Timers/timing mode are synced fields but not yet interactive (Phase 8–9).
+- Full Rust-owned mutation path (commands for evidence changes) is still future work; Main mutates locally then publishes.
+- Mimic fake-orbs still not special-cased.

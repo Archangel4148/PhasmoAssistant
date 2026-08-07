@@ -18,6 +18,16 @@ export function MainWindow() {
     (state) => state.possibleGhostCount,
   );
   const cycleEvidence = useInvestigationStore((state) => state.cycleEvidence);
+  const timingMode = useInvestigationStore((state) => state.timingMode);
+  const currentGhostSpeedMps = useInvestigationStore(
+    (state) => state.currentGhostSpeedMps,
+  );
+  const smudgeRemainingSeconds = useInvestigationStore(
+    (state) => state.smudgeRemainingSeconds,
+  );
+  const huntRemainingSeconds = useInvestigationStore(
+    (state) => state.huntRemainingSeconds,
+  );
 
   const mock = MOCK_SUBSYSTEMS;
 
@@ -42,10 +52,10 @@ export function MainWindow() {
               onEvidenceCycle={cycleEvidence}
             />
             <InvestigationToolsPanel
-              timingMode={mock.timingMode}
-              currentGhostSpeedMps={mock.currentGhostSpeedMps}
-              smudgeRemainingSeconds={mock.smudgeRemainingSeconds}
-              huntRemainingSeconds={mock.huntRemainingSeconds}
+              timingMode={timingMode}
+              currentGhostSpeedMps={currentGhostSpeedMps}
+              smudgeRemainingSeconds={smudgeRemainingSeconds}
+              huntRemainingSeconds={huntRemainingSeconds}
             />
           </div>
 

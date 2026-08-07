@@ -57,6 +57,37 @@ Manual verification (`npm run tauri dev`):
 - [x] Domain tests pass (`npm run test`)
 - [x] UI contains no ghost-filtering logic
 
+---
+
+## Phase 4 checks
+
+```powershell
+npm run typecheck
+npm run test
+cd src-tauri; cargo check
+npm run tauri dev
+```
+
+Manual verification:
+
+- Overlay window appears (frameless, always on top, not in taskbar)
+- Overlay background is transparent over the desktop/game
+- Mouse clicks pass through the overlay (click-through)
+- Changing evidence in Main updates Overlay possible-ghost list
+- Confirming evidence shows a toast on the Overlay that fades after ~2.5s
+- Overlay does not steal focus from other apps when created
+
+### Acceptance criteria (Phase 4)
+
+- [x] Transparent
+- [x] Frameless
+- [x] Always on top
+- [x] Click-through
+- [x] Non-focusable
+- [x] Does not appear in taskbar
+- [x] Main and Overlay reflect the same state
+- [x] Overlay looks correct over arbitrary backgrounds
+
 ## Automated tests
 
 Domain logic tests live alongside implementation:
