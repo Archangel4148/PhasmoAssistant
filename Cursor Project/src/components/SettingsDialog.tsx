@@ -1,6 +1,11 @@
+import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useInvestigationStore } from "../state/investigationStore";
+import {
+  applyThemeToDocument,
+  usePreferencesStore,
+} from "../state/preferencesStore";
 import {
   clampTimingResultHideAfterSeconds,
   GHOST_SPEED_MULTIPLIER_OPTIONS,
@@ -9,6 +14,13 @@ import {
   type GhostSpeedMultiplier,
 } from "../types/investigationSettings";
 import {
+  clampOverlayScale,
+  DEFAULT_HOTKEY_PREFERENCES,
+  OVERLAY_SCALE_MAX,
+  OVERLAY_SCALE_MIN,
+  type AppTheme,
+} from "../types/persistedPreferences";
+import {
   clampTickerSpeed,
   DEFAULT_OVERLAY_APPEARANCE,
   normalizeHexColor,
@@ -16,25 +28,26 @@ import {
   OVERLAY_TICKER_SPEED_MIN,
 } from "../types/overlayAppearance";
 
+async function resetOverlayWindowLayout(): Promise<void> {
+  try {
+    const overlay = await WebviewWindow.getByLabel("overlay");
+    if (overlay) {
+      await overlay.maximize();
+    }
+  } catch (error: unknown) {
+    console.warn("Failed to reset overlay window layout", error);
+  }
+}
+
 interface SettingsDialogProps {
   open: boolean;
   onClose: () => void;
 }
 
-const PLACEHOLDER_SECTIONS = [
-  {
-    title: "Voice",
-    description: "Microphone selection and sidecar controls",
-  },
-  {
-    title: "Hotkeys",
-    description: "Global shortcut configuration",
-  },
-  {
-    title: "Windows",
-    description: "Main and overlay geometry persistence",
-  },
-] as const;
+interface MicOption {
+  deviceId: string;
+  label: string;
+}
 
 const PRESET_COLORS = [
   { label: "Mist", value: "#9aa7b8" },
@@ -52,13 +65,64 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
   const setInvestigationSettings = useInvestigationStore(
     (state) => state.setInvestigationSettings,
   );
+
+  const theme = usePreferencesStore((state) => state.theme);
+  const hotkeys = usePreferencesStore((state) => state.hotkeys);
+  const microphone = usePreferencesStore((state) => state.microphone);
+  const overlayLayout = usePreferencesStore((state) => state.overlay);
+  const setTheme = usePreferencesStore((state) => state.setTheme);
+  const setHotkeys = usePreferencesStore((state) => state.setHotkeys);
+  const setMicrophone = usePreferencesStore((state) => state.setMicrophone);
+  const setOverlayLayout = usePreferencesStore((state) => state.setOverlayLayout);
+
   const [hexDraft, setHexDraft] = useState(appearance.ghostTextColor);
+  const [toggleHotkeyDraft, setToggleHotkeyDraft] = useState(hotkeys.toggleTiming);
+  const [micOptions, setMicOptions] = useState<MicOption[]>([]);
 
   useEffect(() => {
     if (open) {
       setHexDraft(appearance.ghostTextColor);
+      setToggleHotkeyDraft(hotkeys.toggleTiming);
     }
-  }, [open, appearance.ghostTextColor]);
+  }, [open, appearance.ghostTextColor, hotkeys.toggleTiming]);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    let cancelled = false;
+
+    async function loadMics(): Promise<void> {
+      try {
+        await navigator.mediaDevices.getUserMedia({ audio: true });
+      } catch {
+        // Permission may already be granted or denied; still try enumerate.
+      }
+
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        if (cancelled) {
+          return;
+        }
+        setMicOptions(
+          devices
+            .filter((device) => device.kind === "audioinput")
+            .map((device, index) => ({
+              deviceId: device.deviceId,
+              label: device.label || `Microphone ${index + 1}`,
+            })),
+        );
+      } catch (error: unknown) {
+        console.warn("Failed to enumerate microphones", error);
+      }
+    }
+
+    void loadMics();
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
 
   return (
     <AnimatePresence>
@@ -81,7 +145,7 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.96, y: 8 }}
             transition={{ duration: 0.2, ease: "easeOut" }}
-            className="fixed left-1/2 top-1/2 z-50 m-0 flex max-h-[min(80vh,640px)] w-[min(calc(100vw-2rem),480px)] -translate-x-1/2 -translate-y-1/2 flex-col rounded-xl border border-zinc-700/80 bg-zinc-900 shadow-2xl"
+            className="fixed left-1/2 top-1/2 z-50 m-0 flex max-h-[min(85vh,720px)] w-[min(calc(100vw-2rem),520px)] -translate-x-1/2 -translate-y-1/2 flex-col rounded-xl border border-zinc-700/80 bg-zinc-900 shadow-2xl"
           >
             <div className="flex items-center justify-between border-b border-zinc-800 px-5 py-4">
               <div>
@@ -89,7 +153,7 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                   Settings
                 </h2>
                 <p className="text-xs text-zinc-500">
-                  Overlay and investigation options sync live to the HUD
+                  Preferences persist across restarts (investigation state does not)
                 </p>
               </div>
               <button
@@ -102,6 +166,168 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
             </div>
 
             <div className="space-y-3 overflow-y-auto px-5 py-4">
+              <section className="rounded-lg border border-zinc-800/80 bg-zinc-950/50 px-3 py-3">
+                <p className="text-sm font-medium text-zinc-200">Theme</p>
+                <p className="mt-0.5 text-xs text-zinc-500">
+                  Main window color scheme
+                </p>
+                <fieldset className="mt-3 flex gap-2">
+                  {(["dark", "light"] as const).map((option) => (
+                    <label
+                      key={option}
+                      className={`flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-md border px-2.5 py-2 text-sm capitalize ${
+                        theme === option
+                          ? "border-amber-500/40 bg-amber-500/10 text-amber-100"
+                          : "border-zinc-800 bg-zinc-900/40 text-zinc-300"
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="theme"
+                        checked={theme === option}
+                        onChange={() => {
+                          const next = option as AppTheme;
+                          setTheme(next);
+                          applyThemeToDocument(next);
+                        }}
+                        className="accent-amber-400"
+                      />
+                      {option}
+                    </label>
+                  ))}
+                </fieldset>
+              </section>
+
+              <section className="rounded-lg border border-zinc-800/80 bg-zinc-950/50 px-3 py-3">
+                <p className="text-sm font-medium text-zinc-200">Voice</p>
+                <p className="mt-0.5 text-xs text-zinc-500">
+                  Preferred microphone (sidecar currently uses system default;
+                  selection is remembered for future routing)
+                </p>
+                <label className="mt-3 block">
+                  <span className="text-[11px] font-medium uppercase tracking-wide text-zinc-500">
+                    Microphone
+                  </span>
+                  <select
+                    className="mt-1.5 w-full rounded-md border border-zinc-700/80 bg-zinc-900 px-2.5 py-2 text-sm text-zinc-200 outline-none focus:border-zinc-500"
+                    value={microphone.deviceId ?? ""}
+                    onChange={(event) => {
+                      const deviceId = event.target.value || null;
+                      const option = micOptions.find(
+                        (entry) => entry.deviceId === deviceId,
+                      );
+                      setMicrophone({
+                        deviceId,
+                        label: option?.label ?? null,
+                      });
+                    }}
+                  >
+                    <option value="">System default</option>
+                    {micOptions.map((option) => (
+                      <option key={option.deviceId} value={option.deviceId}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </section>
+
+              <section className="rounded-lg border border-zinc-800/80 bg-zinc-950/50 px-3 py-3">
+                <p className="text-sm font-medium text-zinc-200">Hotkeys</p>
+                <p className="mt-0.5 text-xs text-zinc-500">
+                  Global shortcuts (Tauri accelerator syntax)
+                </p>
+                <label className="mt-3 block">
+                  <span className="text-[11px] font-medium uppercase tracking-wide text-zinc-500">
+                    Toggle timing
+                  </span>
+                  <input
+                    type="text"
+                    value={toggleHotkeyDraft}
+                    spellCheck={false}
+                    onChange={(event) => setToggleHotkeyDraft(event.target.value)}
+                    onBlur={() => {
+                      const next = toggleHotkeyDraft.trim();
+                      setHotkeys({
+                        toggleTiming:
+                          next.length > 0
+                            ? next
+                            : DEFAULT_HOTKEY_PREFERENCES.toggleTiming,
+                      });
+                      setToggleHotkeyDraft(
+                        next.length > 0
+                          ? next
+                          : DEFAULT_HOTKEY_PREFERENCES.toggleTiming,
+                      );
+                    }}
+                    className="mt-1.5 w-full rounded-md border border-zinc-700/80 bg-zinc-900 px-2.5 py-2 font-mono text-xs text-zinc-200 outline-none focus:border-zinc-500"
+                  />
+                </label>
+                <p className="mt-2 text-[11px] text-zinc-500">
+                  Footstep capture stays Space + Numpad 0 while timing is armed
+                </p>
+                <button
+                  type="button"
+                  className="mt-2 rounded border border-zinc-700/70 px-2 py-1 text-[11px] text-zinc-400 hover:border-zinc-500 hover:text-zinc-200"
+                  onClick={() => {
+                    setHotkeys({
+                      toggleTiming: DEFAULT_HOTKEY_PREFERENCES.toggleTiming,
+                      recordFootstep: [
+                        ...DEFAULT_HOTKEY_PREFERENCES.recordFootstep,
+                      ],
+                    });
+                    setToggleHotkeyDraft(DEFAULT_HOTKEY_PREFERENCES.toggleTiming);
+                  }}
+                >
+                  Reset hotkeys
+                </button>
+              </section>
+
+              <section className="rounded-lg border border-zinc-800/80 bg-zinc-950/50 px-3 py-3">
+                <p className="text-sm font-medium text-zinc-200">Windows</p>
+                <p className="mt-0.5 text-xs text-zinc-500">
+                  Main/overlay geometry is saved automatically when you move or
+                  resize. Overlay HUD scale is below.
+                </p>
+                <div className="mt-4">
+                  <div className="flex items-center justify-between gap-2">
+                    <label
+                      htmlFor="overlay-scale"
+                      className="text-[11px] font-medium uppercase tracking-wide text-zinc-500"
+                    >
+                      Overlay scale
+                    </label>
+                    <span className="font-mono text-[11px] text-zinc-400">
+                      {Math.round(overlayLayout.scale * 100)}%
+                    </span>
+                  </div>
+                  <input
+                    id="overlay-scale"
+                    type="range"
+                    min={OVERLAY_SCALE_MIN}
+                    max={OVERLAY_SCALE_MAX}
+                    step={0.05}
+                    value={overlayLayout.scale}
+                    onChange={(event) => {
+                      setOverlayLayout({
+                        scale: clampOverlayScale(Number(event.target.value)),
+                      });
+                    }}
+                    className="mt-2 w-full accent-zinc-300"
+                  />
+                </div>
+                <button
+                  type="button"
+                  className="mt-3 rounded border border-zinc-700/70 px-2 py-1 text-[11px] text-zinc-400 hover:border-zinc-500 hover:text-zinc-200"
+                  onClick={() => {
+                    setOverlayLayout({ scale: 1, geometry: null });
+                    void resetOverlayWindowLayout();
+                  }}
+                >
+                  Reset overlay layout
+                </button>
+              </section>
+
               <section className="rounded-lg border border-zinc-800/80 bg-zinc-950/50 px-3 py-3">
                 <p className="text-sm font-medium text-zinc-200">
                   Ghost Speed Mode
@@ -182,11 +408,6 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                     }}
                     className="mt-2 w-full accent-zinc-300"
                   />
-                  <p className="mt-1 text-[11px] text-zinc-500">
-                    {TIMING_RESULT_HIDE_MIN_SECONDS}–
-                    {TIMING_RESULT_HIDE_MAX_SECONDS}s · Main window keeps the
-                    result until the next timing session
-                  </p>
                 </div>
               </section>
 
@@ -302,46 +523,9 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                       }}
                       className="mt-2 w-full accent-zinc-300"
                     />
-                    <div className="mt-2 flex items-center gap-2">
-                      <input
-                        type="number"
-                        min={OVERLAY_TICKER_SPEED_MIN}
-                        max={OVERLAY_TICKER_SPEED_MAX}
-                        value={appearance.tickerSpeedPxPerSec}
-                        onChange={(event) => {
-                          setOverlayAppearance({
-                            tickerSpeedPxPerSec: clampTickerSpeed(
-                              Number(event.target.value),
-                            ),
-                          });
-                        }}
-                        className="w-20 rounded-md border border-zinc-700/80 bg-zinc-900 px-2 py-1 font-mono text-xs text-zinc-200 outline-none focus:border-zinc-500"
-                        aria-label="Ticker speed in pixels per second"
-                      />
-                      <span className="text-[11px] text-zinc-500">
-                        {OVERLAY_TICKER_SPEED_MIN}–{OVERLAY_TICKER_SPEED_MAX}{" "}
-                        px/s · lower is calmer
-                      </span>
-                    </div>
                   </div>
                 </div>
               </section>
-
-              <ul className="space-y-2">
-                {PLACEHOLDER_SECTIONS.map((section) => (
-                  <li
-                    key={section.title}
-                    className="rounded-lg border border-zinc-800/80 bg-zinc-950/50 px-3 py-3"
-                  >
-                    <p className="text-sm font-medium text-zinc-200">
-                      {section.title}
-                    </p>
-                    <p className="mt-0.5 text-xs text-zinc-500">
-                      {section.description}
-                    </p>
-                  </li>
-                ))}
-              </ul>
             </div>
           </motion.dialog>
         </>

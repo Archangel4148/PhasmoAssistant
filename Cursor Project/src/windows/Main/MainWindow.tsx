@@ -7,15 +7,18 @@ import { Header } from "../../components/Header";
 import { InvestigationToolsPanel } from "../../components/InvestigationToolsPanel";
 import { SettingsDialog } from "../../components/SettingsDialog";
 import { useMainInvestigationSync } from "../../hooks/useInvestigationSync";
+import { usePreferencesBootstrap } from "../../hooks/usePreferencesBootstrap";
 import { useTimingHotkeys } from "../../hooks/useTimingHotkeys";
 import { useVoiceSidecarBridge } from "../../hooks/useVoiceSidecarBridge";
 import { restartVoiceSidecar } from "../../services/sidecarApi";
 import { useInvestigationStore } from "../../state/investigationStore";
+import { usePreferencesStore } from "../../state/preferencesStore";
 import { useVoiceDiagnosticsStore } from "../../state/voiceDiagnosticsStore";
 import type { DiagnosticsSnapshot } from "../../types/diagnostics";
 
 export function MainWindow() {
   useMainInvestigationSync();
+  usePreferencesBootstrap("main");
   useTimingHotkeys(true);
   useVoiceSidecarBridge();
 
@@ -31,6 +34,8 @@ export function MainWindow() {
   const toggleGhostEliminated = useInvestigationStore(
     (state) => state.toggleGhostEliminated,
   );
+
+  const microphone = usePreferencesStore((state) => state.microphone);
 
   const voiceStatus = useVoiceDiagnosticsStore((state) => state.voiceStatus);
   const sidecarStatus = useVoiceDiagnosticsStore((state) => state.sidecarStatus);
@@ -50,7 +55,7 @@ export function MainWindow() {
     sidecarStatus,
     microphoneLabel: usingMock
       ? "Mock listener (no mic)"
-      : "System default input",
+      : (microphone.label ?? "System default input"),
     microphoneAvailable: !usingMock && voiceStatus === "listening",
     voiceStatus,
     recentVoiceEvents,

@@ -226,6 +226,31 @@ Manual verification:
 - [x] Timing state is synchronized across windows
 - [x] Reset/new sessions work correctly
 
+---
+
+## Phase 10 checks
+
+```powershell
+npm run typecheck
+npm run test
+cd src-tauri; cargo check
+npm run tauri dev
+```
+
+Manual verification:
+
+- Move/resize Main → quit → relaunch restores geometry
+- Change Settings (theme, ghost speed, hide delay, overlay scale, toggle hotkey, mic) → relaunch restores them
+- Start an investigation (evidence/timers/timing) → quit → relaunch shows a clean investigation
+- Corrupt/`null` store values fall back to defaults without crashing
+- Overlay scale slider updates HUD live; Reset overlay layout restores maximized overlay
+
+### Acceptance criteria (Phase 10)
+
+- [x] Settings survive application restart
+- [x] Active investigation state does not persist by default
+- [x] Invalid stored data falls back safely
+
 ## Automated tests
 
 Domain logic tests live alongside implementation:
@@ -235,6 +260,7 @@ Domain logic tests live alongside implementation:
 - `src/domain/timers/timerState.test.ts`
 - `src/domain/speed/calculateSpeed.test.ts`
 - `src/domain/voice/normalizeCommand.test.ts`
+- `src/types/persistedPreferences.test.ts`
 
 Run all tests:
 

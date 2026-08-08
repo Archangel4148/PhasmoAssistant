@@ -158,7 +158,6 @@ Defaults use muted slate (`#9aa7b8`) instead of bright white.
 
 ### Known limitations (Phase 4)
 
-- Overlay position/scale persistence is deferred (Phase 10).
 - Full Rust-owned mutation path (commands for evidence changes) is still future work; Main mutates locally then publishes.
 
 ---
@@ -329,5 +328,41 @@ Timing mode with global hotkey, Space/Numpad 0 footstep capture (up to 5 timesta
 ### Known limitations (Phase 9)
 
 - Variable-speed ghosts (ranges / null reference) are skipped or matched only on a single reference value.
-- Hotkey bindings are not yet user-configurable (Phase 10).
 - Global Space while timing will intercept Space system-wide (by design for in-game capture).
+
+---
+
+## Phase 10 — Persistence (complete)
+
+### Scope
+
+Tauri Store persistence for user preferences and window layouts. Active investigation state is **not** persisted.
+
+### Store
+
+- Plugin: `tauri-plugin-store` → `preferences.json`
+- Schema: `PersistedPreferences` with `resolvePersistedPreferences` (field-level safe fallbacks; tested)
+- `usePreferencesStore` holds hydrated prefs and debounced saves
+- `usePreferencesBootstrap` loads on Main/Overlay startup
+
+### Persisted
+
+| Item | Notes |
+|------|--------|
+| Main window geometry | Saved on move/resize; restored at launch |
+| Overlay geometry + HUD scale | Geometry optional; scale 75–150% via CSS transform |
+| Overlay appearance | Color + ticker speed |
+| Investigation settings | Ghost speed multiplier, timing hide delay, timer defaults |
+| Hotkeys | Toggle-timing accelerator (configurable) |
+| Theme | `dark` / `light` |
+| Microphone | Device id/label remembered (routing to sidecar still default for now) |
+
+### Explicitly not persisted
+
+Evidence, eliminated ghosts, running timers, timing timestamps/results, toasts.
+
+### Known limitations (Phase 10)
+
+- Selected microphone is stored but the voice sidecar still opens the system default input.
+- Light theme only adjusts the page shell; many panels remain dark-styled.
+- Overlay “Reset layout” maximizes the overlay window and clears saved geometry.

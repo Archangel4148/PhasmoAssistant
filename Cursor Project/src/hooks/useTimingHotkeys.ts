@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { DEFAULT_HOTKEYS } from "../config/hotkeys";
 import { useInvestigationStore } from "../state/investigationStore";
+import { usePreferencesStore } from "../state/preferencesStore";
 
 type ShortcutEvent = {
   state: "Pressed" | "Released";
@@ -21,14 +21,20 @@ async function safeUnregister(shortcut: string): Promise<void> {
 }
 
 /**
- * Registers Ctrl+Shift+T (toggle timing) and, while timing mode is on,
- * Space / Numpad 0 for footstep capture. Main window only (publisher).
+ * Registers the configured toggle-timing hotkey and, while timing mode is on,
+ * footstep capture keys. Main window only (publisher).
  *
  * Falls back to window keydown listeners when the global-shortcut plugin
  * is unavailable (e.g. browser-only Vite preview).
  */
 export function useTimingHotkeys(enabled: boolean): void {
   const timingMode = useInvestigationStore((state) => state.timingMode);
+  const toggleTimingHotkey = usePreferencesStore(
+    (state) => state.hotkeys.toggleTiming,
+  );
+  const footstepHotkeys = usePreferencesStore(
+    (state) => state.hotkeys.recordFootstep,
+  );
   const [usingGlobal, setUsingGlobal] = useState(false);
   const usingGlobalRef = useRef(false);
 
@@ -74,12 +80,12 @@ export function useTimingHotkeys(enabled: boolean): void {
     void (async () => {
       try {
         const { register } = await import("@tauri-apps/plugin-global-shortcut");
-        await safeUnregister(DEFAULT_HOTKEYS.toggleTiming);
+        await safeUnregister(toggleTimingHotkey);
         if (cancelled) {
           return;
         }
 
-        await register(DEFAULT_HOTKEYS.toggleTiming, (event: ShortcutEvent) => {
+        await register(toggleTimingHotkey, (event: ShortcutEvent) => {
           if (event.state === "Pressed") {
             useInvestigationStore.getState().toggleTimingMode();
           }
@@ -103,12 +109,12 @@ export function useTimingHotkeys(enabled: boolean): void {
       window.removeEventListener("keydown", onKeyDown);
       usingGlobalRef.current = false;
       setUsingGlobal(false);
-      void safeUnregister(DEFAULT_HOTKEYS.toggleTiming);
-      for (const key of DEFAULT_HOTKEYS.recordFootstep) {
+      void safeUnregister(toggleTimingHotkey);
+      for (const key of footstepHotkeys) {
         void safeUnregister(key);
       }
     };
-  }, [enabled]);
+  }, [enabled, toggleTimingHotkey, footstepHotkeys]);
 
   useEffect(() => {
     if (!enabled || !usingGlobal) {
@@ -116,7 +122,7 @@ export function useTimingHotkeys(enabled: boolean): void {
     }
 
     let cancelled = false;
-    const keys = [...DEFAULT_HOTKEYS.recordFootstep];
+    const keys = [...footstepHotkeys];
 
     void (async () => {
       for (const key of keys) {
@@ -144,5 +150,5 @@ export function useTimingHotkeys(enabled: boolean): void {
         void safeUnregister(key);
       }
     };
-  }, [enabled, usingGlobal, timingMode]);
+  }, [enabled, usingGlobal, timingMode, footstepHotkeys]);
 }

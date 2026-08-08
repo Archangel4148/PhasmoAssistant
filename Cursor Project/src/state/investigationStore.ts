@@ -42,6 +42,7 @@ import {
   type OverlayAppearanceSettings,
 } from "../types/overlayAppearance";
 import { publishInvestigationSnapshot } from "../services/investigationSync";
+import { usePreferencesStore } from "./preferencesStore";
 
 interface InvestigationView {
   evidence: EvidenceMap;
@@ -364,6 +365,7 @@ export const useInvestigationStore = create<InvestigationStoreState>((set, get) 
       isSyncPublisher: previous.isSyncPublisher,
     });
     publishIfNeeded(get());
+    usePreferencesStore.getState().setOverlayAppearancePrefs(nextAppearance);
   },
 
   setInvestigationSettings: (patch) => {
@@ -382,6 +384,7 @@ export const useInvestigationStore = create<InvestigationStoreState>((set, get) 
       isSyncPublisher: previous.isSyncPublisher,
     });
     publishIfNeeded(get());
+    usePreferencesStore.getState().setInvestigationSettingsPrefs(settings);
   },
 
   applyVoiceAction: (action) => {
@@ -580,6 +583,9 @@ export const useInvestigationStore = create<InvestigationStoreState>((set, get) 
       isSyncPublisher: previous.isSyncPublisher,
     });
     publishIfNeeded(get());
+    usePreferencesStore.getState().setTimerDefaults({
+      smudgeDurationSeconds: durationSeconds,
+    });
   },
 
   startHuntCooldownTimer: () => {
@@ -616,6 +622,9 @@ export const useInvestigationStore = create<InvestigationStoreState>((set, get) 
       isSyncPublisher: previous.isSyncPublisher,
     });
     publishIfNeeded(get());
+    usePreferencesStore.getState().setTimerDefaults({
+      huntCooldownDurationSeconds: durationSeconds,
+    });
   },
 
   resetInvestigation: () => {

@@ -8,9 +8,12 @@ import {
 } from "../../domain/speed";
 import { useClock } from "../../hooks/useClock";
 import { useOverlayInvestigationSync } from "../../hooks/useInvestigationSync";
+import { usePreferencesBootstrap } from "../../hooks/usePreferencesBootstrap";
 import { useInvestigationStore } from "../../state/investigationStore";
+import { usePreferencesStore } from "../../state/preferencesStore";
 
 export function OverlayWindow() {
+  usePreferencesBootstrap("overlay");
   useOverlayInvestigationSync();
 
   const ghosts = useInvestigationStore((state) => state.ghosts);
@@ -31,6 +34,7 @@ export function OverlayWindow() {
     (state) => state.overlayAppearance,
   );
   const settings = useInvestigationStore((state) => state.settings);
+  const overlayScale = usePreferencesStore((state) => state.overlay.scale);
 
   const speedResult = calculateFootstepSpeed(timingTimestampsMs, {
     ghostSpeedMultiplier: settings.ghostSpeedMultiplier,
@@ -56,30 +60,35 @@ export function OverlayWindow() {
 
   return (
     <div className="pointer-events-none relative h-screen w-screen overflow-hidden bg-transparent text-zinc-100">
-      <div className="absolute left-4 right-40 top-4">
-        <OverlayGhostList
-          ghosts={ghosts}
-          textColor={overlayAppearance.ghostTextColor}
-          tickerSpeedPxPerSec={overlayAppearance.tickerSpeedPxPerSec}
-        />
-      </div>
+      <div
+        className="absolute inset-0 origin-top-right"
+        style={{ transform: `scale(${overlayScale})` }}
+      >
+        <div className="absolute left-4 right-40 top-4">
+          <OverlayGhostList
+            ghosts={ghosts}
+            textColor={overlayAppearance.ghostTextColor}
+            tickerSpeedPxPerSec={overlayAppearance.tickerSpeedPxPerSec}
+          />
+        </div>
 
-      <div className="absolute right-4 top-4 flex flex-col items-end gap-2">
-        <OverlayTimers smudgeTimer={smudgeTimer} huntTimer={huntTimer} />
-        <OverlayTimingIndicator
-          active={timingMode}
-          visible={timingVisible}
-          speedMps={currentGhostSpeedMps}
-          observedSpeedMps={speedResult.observedMetersPerSecond}
-          beatsPerMinute={speedResult.beatsPerMinute}
-          stepCount={timingTimestampsMs.length}
-          ghostSpeedMultiplier={settings.ghostSpeedMultiplier}
-          closeMatches={closeMatches}
-        />
-      </div>
+        <div className="absolute right-4 top-4 flex flex-col items-end gap-2">
+          <OverlayTimers smudgeTimer={smudgeTimer} huntTimer={huntTimer} />
+          <OverlayTimingIndicator
+            active={timingMode}
+            visible={timingVisible}
+            speedMps={currentGhostSpeedMps}
+            observedSpeedMps={speedResult.observedMetersPerSecond}
+            beatsPerMinute={speedResult.beatsPerMinute}
+            stepCount={timingTimestampsMs.length}
+            ghostSpeedMultiplier={settings.ghostSpeedMultiplier}
+            closeMatches={closeMatches}
+          />
+        </div>
 
-      <div className="absolute bottom-8 right-6">
-        <OverlayToasts toasts={toasts} />
+        <div className="absolute bottom-8 right-6">
+          <OverlayToasts toasts={toasts} />
+        </div>
       </div>
     </div>
   );
