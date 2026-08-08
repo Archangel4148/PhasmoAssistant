@@ -80,7 +80,7 @@ All 24 ghosts remain in the list; impossible entries receive `isPossible: false`
 - Actions: `cycleEvidence`, `setEvidenceState`, `resetInvestigation`.
 - Filtering always goes through `domain/ghosts` — UI only reads `isPossible`.
 
-Timers still use investigation-store placeholders until Phase 8–9. Voice/diagnostics are live via the sidecar bridge (Phase 5).
+Timers use deadline-based domain state (`domain/timers`); see Phase 8. Voice/diagnostics are live via the sidecar bridge (Phase 5).
 
 ### UI wiring
 
@@ -159,7 +159,7 @@ Defaults use muted slate (`#9aa7b8`) instead of bright white.
 ### Known limitations (Phase 4)
 
 - Overlay position/scale persistence is deferred (Phase 10).
-- Timers/timing mode are synced fields but not yet interactive (Phase 8–9).
+- Timing mode / footstep capture is deferred (Phase 9).
 - Full Rust-owned mutation path (commands for evidence changes) is still future work; Main mutates locally then publishes.
 - Mimic fake-orbs still not special-cased.
 
@@ -250,7 +250,43 @@ vosk_listener.py → JSON utterance → Rust event → resolveVoiceCommand → a
 
 ### Known limitations (Phase 6)
 
-- Timers started by voice are display countdowns in state, not yet deadline-accurate (Phase 8).
 - Microphone device picker not implemented (Phase 10 settings).
 - PyInstaller packaging still deferred.
 - Small English Vosk model must be downloaded manually into `sidecar/models/`.
+
+---
+
+## Phase 8 — Timers (complete)
+
+### Scope
+
+Stopwatch-style smudge and hunt-cooldown timers with Main/Overlay count-up UI, start/stop toggle, and end-threshold presets.
+
+### Semantics
+
+```text
+Idle → start → Running (count up) → past threshold → Expired color (still counting)
+         ↘ re-trigger / Stop → Idle (reset)
+```
+
+- Authoritative state: `InvestigationTimer { durationSeconds, startedAtMs }`.
+- Elapsed time is **derived** from `Date.now()` via `domain/timers` (never incremented in the store).
+- `durationSeconds` is the threshold (“end”); after it, the display keeps counting but switches color.
+- Re-trigger (UI Start/Stop or voice) while active stops and resets to idle.
+- Snapshot sync carries start timestamps (`smudgeTimer` / `huntTimer`), not tick-by-tick elapsed seconds.
+
+### UI
+
+- Investigation Tools: Start/Stop, Reset, duration presets (smudge 60/90/180; hunt 15/20/25).
+- Overlay top-right shows count-up (amber after the end threshold).
+- Voice `trigger smudge` / hunt phrases toggle timers using the configured threshold.
+
+### Configuration persistence
+
+Duration presets live in session store and sync Main ↔ Overlay. Disk persistence of settings is Phase 10.
+
+### Known limitations (Phase 8)
+
+- Expired timers stay past-threshold (amber, still counting) until Stop/Reset.
+- Auto-selecting smudge threshold from remaining ghosts is not implemented (manual presets).
+- Footstep timing mode remains Phase 9.

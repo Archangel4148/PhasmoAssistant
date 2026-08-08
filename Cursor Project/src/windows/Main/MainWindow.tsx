@@ -29,16 +29,6 @@ export function MainWindow() {
   const toggleGhostEliminated = useInvestigationStore(
     (state) => state.toggleGhostEliminated,
   );
-  const timingMode = useInvestigationStore((state) => state.timingMode);
-  const currentGhostSpeedMps = useInvestigationStore(
-    (state) => state.currentGhostSpeedMps,
-  );
-  const smudgeRemainingSeconds = useInvestigationStore(
-    (state) => state.smudgeRemainingSeconds,
-  );
-  const huntRemainingSeconds = useInvestigationStore(
-    (state) => state.huntRemainingSeconds,
-  );
 
   const voiceStatus = useVoiceDiagnosticsStore((state) => state.voiceStatus);
   const sidecarStatus = useVoiceDiagnosticsStore((state) => state.sidecarStatus);
@@ -103,12 +93,7 @@ export function MainWindow() {
               evidence={evidenceEntries}
               onEvidenceCycle={cycleEvidence}
             />
-            <InvestigationToolsPanel
-              timingMode={timingMode}
-              currentGhostSpeedMps={currentGhostSpeedMps}
-              smudgeRemainingSeconds={smudgeRemainingSeconds}
-              huntRemainingSeconds={huntRemainingSeconds}
-            />
+            <InvestigationToolsPanel />
           </div>
 
           <div className="xl:col-span-6">

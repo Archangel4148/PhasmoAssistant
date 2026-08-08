@@ -1,5 +1,6 @@
 import type { EvidenceMap } from "../domain/evidence";
 import type { OverlayAppearanceSettings } from "./overlayAppearance";
+import type { InvestigationTimer } from "./timer";
 
 export interface OverlayToast {
   id: string;
@@ -12,8 +13,10 @@ export interface InvestigationSnapshot {
   evidence: EvidenceMap;
   eliminatedGhostIds: string[];
   timingMode: boolean;
-  smudgeRemainingSeconds: number | null;
-  huntRemainingSeconds: number | null;
+  /** Deadline-based smudge timer; remaining time is derived client-side. */
+  smudgeTimer: InvestigationTimer;
+  /** Deadline-based hunt cooldown timer. */
+  huntTimer: InvestigationTimer;
   currentGhostSpeedMps: number | null;
   toasts: OverlayToast[];
   overlayAppearance: OverlayAppearanceSettings;

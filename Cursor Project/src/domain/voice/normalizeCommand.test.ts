@@ -47,10 +47,12 @@ describe("resolveVoiceCommand", () => {
   it("maps smudge and timer semantic commands", () => {
     expect(resolveVoiceCommand("smudge")).toEqual({
       type: "start_smudge",
-      durationSeconds: 180,
     });
     expect(resolveVoiceCommand("timer")).toEqual({
       type: "toggle_timing_mode",
+    });
+    expect(resolveUtterance("trigger hunt cooldown")).toEqual({
+      type: "start_hunt_cooldown",
     });
   });
 

@@ -10,12 +10,8 @@ export function OverlayWindow() {
 
   const ghosts = useInvestigationStore((state) => state.ghosts);
   const timingMode = useInvestigationStore((state) => state.timingMode);
-  const smudgeRemainingSeconds = useInvestigationStore(
-    (state) => state.smudgeRemainingSeconds,
-  );
-  const huntRemainingSeconds = useInvestigationStore(
-    (state) => state.huntRemainingSeconds,
-  );
+  const smudgeTimer = useInvestigationStore((state) => state.smudgeTimer);
+  const huntTimer = useInvestigationStore((state) => state.huntTimer);
   const toasts = useInvestigationStore((state) => state.toasts);
   const overlayAppearance = useInvestigationStore(
     (state) => state.overlayAppearance,
@@ -32,10 +28,7 @@ export function OverlayWindow() {
       </div>
 
       <div className="absolute right-4 top-4">
-        <OverlayTimers
-          smudgeRemainingSeconds={smudgeRemainingSeconds}
-          huntRemainingSeconds={huntRemainingSeconds}
-        />
+        <OverlayTimers smudgeTimer={smudgeTimer} huntTimer={huntTimer} />
       </div>
 
       <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">

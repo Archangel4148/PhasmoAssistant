@@ -1,29 +1,50 @@
 import { motion } from "framer-motion";
+import {
+  HUNT_COOLDOWN_DURATION_PRESETS,
+  SMUDGE_DURATION_PRESETS,
+  getElapsedSeconds,
+  getTimerPhase,
+  isTimerActive,
+} from "../domain/timers";
+import { useClock } from "../hooks/useClock";
 import { formatDuration, formatSpeedMps } from "../lib/format";
+import { useInvestigationStore } from "../state/investigationStore";
+import type { InvestigationTimer } from "../types/timer";
 import { StatusBadge } from "./StatusBadge";
-
-interface InvestigationToolsPanelProps {
-  timingMode: boolean;
-  currentGhostSpeedMps: number | null;
-  smudgeRemainingSeconds: number | null;
-  huntRemainingSeconds: number | null;
-}
 
 interface TimerBlockProps {
   title: string;
-  remainingSeconds: number | null;
-  idleLabel: string;
+  timer: InvestigationTimer;
+  nowMs: number;
+  presets: readonly number[];
+  onToggle: () => void;
+  onReset: () => void;
+  onDurationChange: (seconds: number) => void;
 }
 
-function TimerBlock({ title, remainingSeconds, idleLabel }: TimerBlockProps) {
-  const isRunning = remainingSeconds !== null && remainingSeconds > 0;
+function TimerBlock({
+  title,
+  timer,
+  nowMs,
+  presets,
+  onToggle,
+  onReset,
+  onDurationChange,
+}: TimerBlockProps) {
+  const phase = getTimerPhase(timer, nowMs);
+  const elapsedSeconds = getElapsedSeconds(timer, nowMs);
+  const active = isTimerActive(timer);
+  const isRunning = phase === "running";
+  const isExpired = phase === "expired";
 
   return (
     <div
       className={`rounded-lg border p-3 ${
         isRunning
           ? "border-violet-500/30 bg-violet-500/5"
-          : "border-zinc-800/80 bg-zinc-900/40"
+          : isExpired
+            ? "border-amber-500/30 bg-amber-500/5"
+            : "border-zinc-800/80 bg-zinc-900/40"
       }`}
     >
       <div className="flex items-center justify-between gap-2">
@@ -31,24 +52,96 @@ function TimerBlock({ title, remainingSeconds, idleLabel }: TimerBlockProps) {
           {title}
         </p>
         {isRunning && <StatusBadge tone="accent">Running</StatusBadge>}
+        {isExpired && <StatusBadge tone="warning">Past End</StatusBadge>}
       </div>
+
       <p
         className={`mt-2 font-mono text-2xl tabular-nums ${
-          isRunning ? "text-violet-200" : "text-zinc-600"
+          isRunning
+            ? "text-violet-200"
+            : isExpired
+              ? "text-amber-200"
+              : "text-zinc-500"
         }`}
       >
-        {isRunning ? formatDuration(remainingSeconds) : idleLabel}
+        {active ? formatDuration(elapsedSeconds ?? 0) : "00:00"}
       </p>
+
+      <p className="mt-1 text-[11px] text-zinc-500">
+        End at {formatDuration(timer.durationSeconds)}
+      </p>
+
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        {presets.map((seconds) => {
+          const selected = timer.durationSeconds === seconds;
+          return (
+            <button
+              key={seconds}
+              type="button"
+              onClick={() => onDurationChange(seconds)}
+              className={`rounded-md border px-2 py-1 text-[11px] tabular-nums transition-colors ${
+                selected
+                  ? "border-violet-500/50 bg-violet-500/15 text-violet-100"
+                  : "border-zinc-700/80 bg-zinc-800/40 text-zinc-400 hover:border-zinc-600 hover:text-zinc-200"
+              }`}
+            >
+              {formatDuration(seconds)}
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="mt-3 flex gap-2">
+        <button
+          type="button"
+          onClick={onToggle}
+          className={`flex-1 rounded-md border px-2 py-1.5 text-xs transition-colors ${
+            active
+              ? "border-zinc-600/80 bg-zinc-800/70 text-zinc-100 hover:border-zinc-500"
+              : "border-violet-500/40 bg-violet-500/15 text-violet-100 hover:bg-violet-500/25"
+          }`}
+        >
+          {active ? "Stop" : "Start"}
+        </button>
+        <button
+          type="button"
+          onClick={onReset}
+          disabled={!active}
+          className="rounded-md border border-zinc-700/80 bg-zinc-800/60 px-2 py-1.5 text-xs text-zinc-300 transition-colors hover:border-zinc-600 hover:text-zinc-100 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          Reset
+        </button>
+      </div>
     </div>
   );
 }
 
-export function InvestigationToolsPanel({
-  timingMode,
-  currentGhostSpeedMps,
-  smudgeRemainingSeconds,
-  huntRemainingSeconds,
-}: InvestigationToolsPanelProps) {
+export function InvestigationToolsPanel() {
+  const timingMode = useInvestigationStore((state) => state.timingMode);
+  const currentGhostSpeedMps = useInvestigationStore(
+    (state) => state.currentGhostSpeedMps,
+  );
+  const smudgeTimer = useInvestigationStore((state) => state.smudgeTimer);
+  const huntTimer = useInvestigationStore((state) => state.huntTimer);
+  const startSmudgeTimer = useInvestigationStore((state) => state.startSmudgeTimer);
+  const resetSmudgeTimer = useInvestigationStore((state) => state.resetSmudgeTimer);
+  const setSmudgeDurationSeconds = useInvestigationStore(
+    (state) => state.setSmudgeDurationSeconds,
+  );
+  const startHuntCooldownTimer = useInvestigationStore(
+    (state) => state.startHuntCooldownTimer,
+  );
+  const resetHuntCooldownTimer = useInvestigationStore(
+    (state) => state.resetHuntCooldownTimer,
+  );
+  const setHuntCooldownDurationSeconds = useInvestigationStore(
+    (state) => state.setHuntCooldownDurationSeconds,
+  );
+
+  const clockNeeded =
+    isTimerActive(smudgeTimer) || isTimerActive(huntTimer);
+  const nowMs = useClock(clockNeeded);
+
   return (
     <section className="rounded-xl border border-zinc-800/80 bg-zinc-900/50 p-4 shadow-lg backdrop-blur-sm">
       <div className="mb-4">
@@ -114,32 +207,23 @@ export function InvestigationToolsPanel({
 
         <TimerBlock
           title="Smudge Timer"
-          remainingSeconds={smudgeRemainingSeconds}
-          idleLabel="02:00"
+          timer={smudgeTimer}
+          nowMs={nowMs}
+          presets={SMUDGE_DURATION_PRESETS}
+          onToggle={startSmudgeTimer}
+          onReset={resetSmudgeTimer}
+          onDurationChange={setSmudgeDurationSeconds}
         />
 
         <TimerBlock
           title="Hunt Cooldown"
-          remainingSeconds={huntRemainingSeconds}
-          idleLabel="—:—"
+          timer={huntTimer}
+          nowMs={nowMs}
+          presets={HUNT_COOLDOWN_DURATION_PRESETS}
+          onToggle={startHuntCooldownTimer}
+          onReset={resetHuntCooldownTimer}
+          onDurationChange={setHuntCooldownDurationSeconds}
         />
-
-        <div className="flex gap-2">
-          <button
-            type="button"
-            disabled
-            className="flex-1 rounded-md border border-zinc-700/80 bg-zinc-800/60 px-2 py-1.5 text-xs text-zinc-400"
-          >
-            Start Smudge
-          </button>
-          <button
-            type="button"
-            disabled
-            className="flex-1 rounded-md border border-zinc-700/80 bg-zinc-800/60 px-2 py-1.5 text-xs text-zinc-400"
-          >
-            Start Hunt CD
-          </button>
-        </div>
       </div>
     </section>
   );

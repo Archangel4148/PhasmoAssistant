@@ -11,11 +11,20 @@ import {
   setEvidenceEntryState,
   type EvidenceMap,
 } from "../domain/evidence";
+import {
+  createIdleTimer,
+  DEFAULT_HUNT_COOLDOWN_SECONDS,
+  DEFAULT_SMUDGE_SECONDS,
+  resetTimer,
+  setTimerDuration,
+  toggleTimer,
+} from "../domain/timers";
 import { EVIDENCE_BY_ID } from "../data/evidence";
 import type { VoiceAction } from "../domain/voice";
 import type { EvidenceEntry, EvidenceId } from "../types/evidence";
 import type { GhostDisplayItem } from "../types/ghost";
 import type { InvestigationSnapshot, OverlayToast } from "../types/sync";
+import type { InvestigationTimer } from "../types/timer";
 import {
   clampTickerSpeed,
   DEFAULT_OVERLAY_APPEARANCE,
@@ -31,8 +40,8 @@ interface InvestigationView {
   ghosts: GhostDisplayItem[];
   possibleGhostCount: number;
   timingMode: boolean;
-  smudgeRemainingSeconds: number | null;
-  huntRemainingSeconds: number | null;
+  smudgeTimer: InvestigationTimer;
+  huntTimer: InvestigationTimer;
   currentGhostSpeedMps: number | null;
   toasts: OverlayToast[];
   overlayAppearance: OverlayAppearanceSettings;
@@ -52,14 +61,20 @@ interface InvestigationStoreState extends InvestigationView {
   setOverlayAppearance: (patch: Partial<OverlayAppearanceSettings>) => void;
   applyVoiceAction: (action: VoiceAction) => void;
   toggleGhostEliminated: (ghostId: string) => void;
+  startSmudgeTimer: () => void;
+  resetSmudgeTimer: () => void;
+  setSmudgeDurationSeconds: (durationSeconds: number) => void;
+  startHuntCooldownTimer: () => void;
+  resetHuntCooldownTimer: () => void;
+  setHuntCooldownDurationSeconds: (durationSeconds: number) => void;
   resetInvestigation: () => void;
 }
 
 type InvestigationExtras = Pick<
   InvestigationView,
   | "timingMode"
-  | "smudgeRemainingSeconds"
-  | "huntRemainingSeconds"
+  | "smudgeTimer"
+  | "huntTimer"
   | "currentGhostSpeedMps"
   | "toasts"
   | "overlayAppearance"
@@ -114,13 +129,30 @@ function resolveOverlayAppearance(
   };
 }
 
+function resolveTimer(
+  value: InvestigationTimer | undefined,
+  fallbackDuration: number,
+): InvestigationTimer {
+  if (!value || typeof value.durationSeconds !== "number") {
+    return createIdleTimer(fallbackDuration);
+  }
+
+  return {
+    durationSeconds: value.durationSeconds,
+    startedAtMs:
+      typeof value.startedAtMs === "number" && Number.isFinite(value.startedAtMs)
+        ? value.startedAtMs
+        : null,
+  };
+}
+
 function toSnapshot(state: InvestigationView): InvestigationSnapshot {
   return {
     evidence: state.evidence,
     eliminatedGhostIds: state.eliminatedGhostIds,
     timingMode: state.timingMode,
-    smudgeRemainingSeconds: state.smudgeRemainingSeconds,
-    huntRemainingSeconds: state.huntRemainingSeconds,
+    smudgeTimer: state.smudgeTimer,
+    huntTimer: state.huntTimer,
     currentGhostSpeedMps: state.currentGhostSpeedMps,
     toasts: state.toasts,
     overlayAppearance: state.overlayAppearance,
@@ -173,8 +205,8 @@ function trimToasts(toasts: OverlayToast[]): OverlayToast[] {
 function keepSessionExtras(state: InvestigationView): InvestigationExtras {
   return {
     timingMode: state.timingMode,
-    smudgeRemainingSeconds: state.smudgeRemainingSeconds,
-    huntRemainingSeconds: state.huntRemainingSeconds,
+    smudgeTimer: state.smudgeTimer,
+    huntTimer: state.huntTimer,
     currentGhostSpeedMps: state.currentGhostSpeedMps,
     toasts: state.toasts,
     overlayAppearance: state.overlayAppearance,
@@ -183,8 +215,8 @@ function keepSessionExtras(state: InvestigationView): InvestigationExtras {
 
 const initialView = buildInvestigationView(createInitialEvidenceMap(), [], {
   timingMode: false,
-  smudgeRemainingSeconds: null,
-  huntRemainingSeconds: null,
+  smudgeTimer: createIdleTimer(DEFAULT_SMUDGE_SECONDS),
+  huntTimer: createIdleTimer(DEFAULT_HUNT_COOLDOWN_SECONDS),
   currentGhostSpeedMps: null,
   toasts: [],
   overlayAppearance: { ...DEFAULT_OVERLAY_APPEARANCE },
@@ -202,8 +234,8 @@ export const useInvestigationStore = create<InvestigationStoreState>((set, get) 
     set(
       buildInvestigationView(evidence, snapshot.eliminatedGhostIds ?? [], {
         timingMode: snapshot.timingMode ?? false,
-        smudgeRemainingSeconds: snapshot.smudgeRemainingSeconds ?? null,
-        huntRemainingSeconds: snapshot.huntRemainingSeconds ?? null,
+        smudgeTimer: resolveTimer(snapshot.smudgeTimer, DEFAULT_SMUDGE_SECONDS),
+        huntTimer: resolveTimer(snapshot.huntTimer, DEFAULT_HUNT_COOLDOWN_SECONDS),
         currentGhostSpeedMps: snapshot.currentGhostSpeedMps ?? null,
         toasts: snapshot.toasts ?? [],
         overlayAppearance: resolveOverlayAppearance(snapshot.overlayAppearance),
@@ -293,13 +325,14 @@ export const useInvestigationStore = create<InvestigationStoreState>((set, get) 
         break;
       }
       case "start_smudge": {
+        const wasActive = previous.smudgeTimer.startedAtMs !== null;
         const toast: OverlayToast = {
           id: `toast-smudge-${Date.now()}`,
-          message: "✓ Smudge Started",
+          message: wasActive ? "✓ Smudge Stopped" : "✓ Smudge Started",
           createdAtMs: Date.now(),
         };
         set({
-          smudgeRemainingSeconds: action.durationSeconds,
+          smudgeTimer: toggleTimer(previous.smudgeTimer, Date.now()),
           toasts: trimToasts([...previous.toasts, toast]),
           isSyncPublisher: previous.isSyncPublisher,
         });
@@ -320,13 +353,16 @@ export const useInvestigationStore = create<InvestigationStoreState>((set, get) 
         break;
       }
       case "start_hunt_cooldown": {
+        const wasActive = previous.huntTimer.startedAtMs !== null;
         const toast: OverlayToast = {
           id: `toast-hunt-${Date.now()}`,
-          message: "✓ Hunt Cooldown Started",
+          message: wasActive
+            ? "✓ Hunt Cooldown Stopped"
+            : "✓ Hunt Cooldown Started",
           createdAtMs: Date.now(),
         };
         set({
-          huntRemainingSeconds: action.durationSeconds,
+          huntTimer: toggleTimer(previous.huntTimer, Date.now()),
           toasts: trimToasts([...previous.toasts, toast]),
           isSyncPublisher: previous.isSyncPublisher,
         });
@@ -353,12 +389,83 @@ export const useInvestigationStore = create<InvestigationStoreState>((set, get) 
     publishIfNeeded(get());
   },
 
+  startSmudgeTimer: () => {
+    const previous = get();
+    const wasActive = previous.smudgeTimer.startedAtMs !== null;
+    const toast: OverlayToast = {
+      id: `toast-smudge-${Date.now()}`,
+      message: wasActive ? "✓ Smudge Stopped" : "✓ Smudge Started",
+      createdAtMs: Date.now(),
+    };
+    set({
+      smudgeTimer: toggleTimer(previous.smudgeTimer, Date.now()),
+      toasts: trimToasts([...previous.toasts, toast]),
+      isSyncPublisher: previous.isSyncPublisher,
+    });
+    publishIfNeeded(get());
+  },
+
+  resetSmudgeTimer: () => {
+    const previous = get();
+    set({
+      smudgeTimer: resetTimer(previous.smudgeTimer),
+      isSyncPublisher: previous.isSyncPublisher,
+    });
+    publishIfNeeded(get());
+  },
+
+  setSmudgeDurationSeconds: (durationSeconds) => {
+    const previous = get();
+    set({
+      smudgeTimer: setTimerDuration(previous.smudgeTimer, durationSeconds),
+      isSyncPublisher: previous.isSyncPublisher,
+    });
+    publishIfNeeded(get());
+  },
+
+  startHuntCooldownTimer: () => {
+    const previous = get();
+    const wasActive = previous.huntTimer.startedAtMs !== null;
+    const toast: OverlayToast = {
+      id: `toast-hunt-${Date.now()}`,
+      message: wasActive
+        ? "✓ Hunt Cooldown Stopped"
+        : "✓ Hunt Cooldown Started",
+      createdAtMs: Date.now(),
+    };
+    set({
+      huntTimer: toggleTimer(previous.huntTimer, Date.now()),
+      toasts: trimToasts([...previous.toasts, toast]),
+      isSyncPublisher: previous.isSyncPublisher,
+    });
+    publishIfNeeded(get());
+  },
+
+  resetHuntCooldownTimer: () => {
+    const previous = get();
+    set({
+      huntTimer: resetTimer(previous.huntTimer),
+      isSyncPublisher: previous.isSyncPublisher,
+    });
+    publishIfNeeded(get());
+  },
+
+  setHuntCooldownDurationSeconds: (durationSeconds) => {
+    const previous = get();
+    set({
+      huntTimer: setTimerDuration(previous.huntTimer, durationSeconds),
+      isSyncPublisher: previous.isSyncPublisher,
+    });
+    publishIfNeeded(get());
+  },
+
   resetInvestigation: () => {
     const previous = get();
     const next = buildInvestigationView(createInitialEvidenceMap(), [], {
       timingMode: false,
-      smudgeRemainingSeconds: null,
-      huntRemainingSeconds: null,
+      // Keep configured thresholds; clear running stopwatches.
+      smudgeTimer: createIdleTimer(previous.smudgeTimer.durationSeconds),
+      huntTimer: createIdleTimer(previous.huntTimer.durationSeconds),
       currentGhostSpeedMps: null,
       toasts: [],
       overlayAppearance: previous.overlayAppearance,

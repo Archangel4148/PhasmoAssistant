@@ -29,13 +29,36 @@ impl Default for OverlayAppearance {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct InvestigationTimer {
+    pub duration_seconds: u32,
+    pub started_at_ms: Option<u64>,
+}
+
+fn default_smudge_timer() -> InvestigationTimer {
+    InvestigationTimer {
+        duration_seconds: 90,
+        started_at_ms: None,
+    }
+}
+
+fn default_hunt_timer() -> InvestigationTimer {
+    InvestigationTimer {
+        duration_seconds: 25,
+        started_at_ms: None,
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct InvestigationSnapshot {
     /// Evidence map keyed by evidence id (JSON object). Filtering stays in TypeScript domain.
     pub evidence: serde_json::Value,
     pub eliminated_ghost_ids: Vec<String>,
     pub timing_mode: bool,
-    pub smudge_remaining_seconds: Option<u32>,
-    pub hunt_remaining_seconds: Option<u32>,
+    #[serde(default = "default_smudge_timer")]
+    pub smudge_timer: InvestigationTimer,
+    #[serde(default = "default_hunt_timer")]
+    pub hunt_timer: InvestigationTimer,
     pub current_ghost_speed_mps: Option<f64>,
     pub toasts: Vec<OverlayToast>,
     #[serde(default)]
@@ -48,8 +71,8 @@ impl Default for InvestigationSnapshot {
             evidence: serde_json::json!({}),
             eliminated_ghost_ids: Vec::new(),
             timing_mode: false,
-            smudge_remaining_seconds: None,
-            hunt_remaining_seconds: None,
+            smudge_timer: default_smudge_timer(),
+            hunt_timer: default_hunt_timer(),
             current_ghost_speed_mps: None,
             toasts: Vec::new(),
             overlay_appearance: OverlayAppearance::default(),

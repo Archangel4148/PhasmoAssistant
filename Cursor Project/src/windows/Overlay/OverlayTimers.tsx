@@ -1,43 +1,58 @@
 import { motion } from "framer-motion";
+import {
+  getElapsedSeconds,
+  getTimerPhase,
+  isTimerActive,
+} from "../../domain/timers";
+import { useClock } from "../../hooks/useClock";
 import { formatDuration } from "../../lib/format";
+import type { InvestigationTimer } from "../../types/timer";
 
 interface OverlayTimersProps {
-  smudgeRemainingSeconds: number | null;
-  huntRemainingSeconds: number | null;
+  smudgeTimer: InvestigationTimer;
+  huntTimer: InvestigationTimer;
 }
 
 function TimerLine({
   label,
-  remainingSeconds,
+  timer,
+  nowMs,
 }: {
   label: string;
-  remainingSeconds: number | null;
+  timer: InvestigationTimer;
+  nowMs: number;
 }) {
-  const active = remainingSeconds !== null && remainingSeconds > 0;
+  const phase = getTimerPhase(timer, nowMs);
+  const elapsedSeconds = getElapsedSeconds(timer, nowMs);
+  const active = isTimerActive(timer);
+  const expired = phase === "expired";
 
   return (
     <div
       className={`flex items-baseline justify-end gap-2 font-mono text-sm tabular-nums ${
-        active ? "text-zinc-100" : "text-zinc-400"
+        phase === "running"
+          ? "text-zinc-100"
+          : expired
+            ? "text-amber-200"
+            : "text-zinc-400"
       }`}
     >
       <span className="text-[11px] uppercase tracking-wide opacity-80">
         {label}
       </span>
       <span className="min-w-[3.25rem] text-right">
-        {active ? formatDuration(remainingSeconds) : "—:—"}
+        {active ? formatDuration(elapsedSeconds ?? 0) : "—:—"}
       </span>
     </div>
   );
 }
 
-export function OverlayTimers({
-  smudgeRemainingSeconds,
-  huntRemainingSeconds,
-}: OverlayTimersProps) {
+export function OverlayTimers({ smudgeTimer, huntTimer }: OverlayTimersProps) {
+  const clockNeeded =
+    isTimerActive(smudgeTimer) || isTimerActive(huntTimer);
+  const nowMs = useClock(clockNeeded);
   const anyActive =
-    (smudgeRemainingSeconds !== null && smudgeRemainingSeconds > 0) ||
-    (huntRemainingSeconds !== null && huntRemainingSeconds > 0);
+    isTimerActive(smudgeTimer) || isTimerActive(huntTimer);
 
   return (
     <motion.div
@@ -46,8 +61,8 @@ export function OverlayTimers({
       transition={{ duration: 0.25 }}
       className="rounded-lg border border-white/10 bg-black/45 px-3 py-2 backdrop-blur-sm"
     >
-      <TimerLine label="Smudge" remainingSeconds={smudgeRemainingSeconds} />
-      <TimerLine label="Hunt" remainingSeconds={huntRemainingSeconds} />
+      <TimerLine label="Smudge" timer={smudgeTimer} nowMs={nowMs} />
+      <TimerLine label="Hunt" timer={huntTimer} nowMs={nowMs} />
     </motion.div>
   );
 }

@@ -2,12 +2,15 @@ import type { EvidenceId } from "../../types/evidence";
 
 export type VoiceAction =
   | { type: "confirm_evidence"; evidenceId: EvidenceId }
-  | { type: "start_smudge"; durationSeconds: number }
+  | { type: "start_smudge" }
   | { type: "toggle_timing_mode" }
-  | { type: "start_hunt_cooldown"; durationSeconds: number };
+  | { type: "start_hunt_cooldown" };
 
-export const DEFAULT_SMUDGE_SECONDS = 180;
-export const DEFAULT_HUNT_COOLDOWN_SECONDS = 25;
+/** Re-exported so callers keep a single import path for voice defaults. */
+export {
+  DEFAULT_HUNT_COOLDOWN_SECONDS,
+  DEFAULT_SMUDGE_SECONDS,
+} from "../timers";
 
 const EVIDENCE_PHRASES: ReadonlyArray<{ id: EvidenceId; phrases: string[] }> = [
   {
@@ -122,7 +125,7 @@ export function resolveVoiceCommand(
   }
 
   if (normalizedCommand === "smudge") {
-    return { type: "start_smudge", durationSeconds: DEFAULT_SMUDGE_SECONDS };
+    return { type: "start_smudge" };
   }
 
   if (normalizedCommand === "timer") {
@@ -156,7 +159,7 @@ export function resolveUtterance(text: string): VoiceAction | null {
     remainder === "smudge stick" ||
     remainder === "use smudge"
   ) {
-    return { type: "start_smudge", durationSeconds: DEFAULT_SMUDGE_SECONDS };
+    return { type: "start_smudge" };
   }
 
   if (
@@ -174,10 +177,7 @@ export function resolveUtterance(text: string): VoiceAction | null {
     remainder === "hunt cooldown" ||
     remainder === "cooldown"
   ) {
-    return {
-      type: "start_hunt_cooldown",
-      durationSeconds: DEFAULT_HUNT_COOLDOWN_SECONDS,
-    };
+    return { type: "start_hunt_cooldown" };
   }
 
   const evidenceId = normalizeEvidencePhrase(remainder);

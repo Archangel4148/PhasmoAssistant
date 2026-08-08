@@ -173,12 +173,39 @@ Manual verification (`npm run tauri dev`):
 - [x] Filtering is correct for the complete dataset
 - [x] Ghost logic exists in data/domain code rather than UI components
 
+---
+
+## Phase 8 checks
+
+```powershell
+npm run typecheck
+npm run test
+cd src-tauri; cargo check
+npm run tauri dev
+```
+
+Manual verification:
+
+- Start Smudge → count-up from 00:00; turns amber after the selected end threshold
+- Re-trigger Start/Stop or `trigger hunt` while running → timer stops and resets
+- Switch window focus / minimize briefly → elapsed time stays correct (no drift)
+- Overlay top-right mirrors Main stopwatch without republishing every tick
+- Duration presets (60/90/180 and 15/20/25) set the end threshold
+
+### Acceptance criteria (Phase 8)
+
+- [x] Timers remain accurate while application focus changes
+- [x] Timers do not drift significantly
+- [x] Timers correctly expire
+
 ## Automated tests
 
 Domain logic tests live alongside implementation:
 
 - `src/domain/evidence/evidenceRules.test.ts`
 - `src/domain/ghosts/filterPossibleGhosts.test.ts`
+- `src/domain/timers/timerState.test.ts`
+- `src/domain/voice/normalizeCommand.test.ts`
 
 Run all tests:
 
@@ -192,7 +219,7 @@ Watch mode:
 npm run test:watch
 ```
 
-Future phases will add timer, speed, and voice normalization tests as those domains are implemented.
+Future phases will add speed-calculator tests as that domain is implemented.
 
 Rust protocol parsing tests:
 
