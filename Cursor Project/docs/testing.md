@@ -318,7 +318,25 @@ Manual verification:
 - Microphone **None** stops voice; selecting a mic restarts it
 - Accent color updates Main header/panel accents + overlay ghost text
 - Diagnostics → View accepted voice phrases lists catalog entries
-- Packaged app uses the custom ghost orb icons (`src-tauri/icons`)
+- Packaged app uses the hooded-figure icons (`src-tauri/icons`, from `assets/app-icon.png`)
+
+---
+
+## Distribution / packaging checks
+
+```powershell
+npm run sidecar:prepare
+# optional smoke: run staged exe with --model (emits voice_status JSON on stdout)
+npm run tauri:build
+```
+
+Manual verification:
+
+- `sidecar/dist/phasmophobia-voice/phasmophobia-voice.exe` exists after prepare
+- `src-tauri/resources/phasmophobia-voice/` and `.../models/vosk-model-small-en-us-0.15/` are staged
+- NSIS installer appears under `src-tauri/target/release/bundle/nsis/`
+- Clean install (no Python on PATH): app starts; Diagnostics shows voice listening (or recoverable mic error, not “install Python”)
+- Dev without packaged exe: `npm run tauri dev` still launches `vosk_listener.py`
 
 ## Automated tests
 

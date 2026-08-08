@@ -8,7 +8,7 @@ Phase 6 — Vosk listener with wake word. Domain normalizes utterances into inve
 
 ```text
 Microphone
-  → Vosk (sidecar/vosk_listener.py)
+  → Vosk (packaged phasmophobia-voice.exe or vosk_listener.py)
   → wake word "trigger"
   → voice_command utterance
   → Rust event
@@ -16,7 +16,7 @@ Microphone
   → investigation store applyVoiceAction
 ```
 
-Diagnostics / logs from Python must use **stderr** only.
+Diagnostics / logs from the sidecar must use **stderr** only.
 
 ## Sidecar stdout events
 
@@ -65,12 +65,17 @@ Microphone Settings includes **None (voice disabled)** (`microphone.enabled = fa
 
 ## Missing model / deps
 
-Sidecar emits `sidecar_error` with setup instructions, sets `voice_status: error`, exits 0. App UI remains usable. Use **Restart Sidecar** after installing:
+Sidecar emits `sidecar_error` with setup instructions, sets `voice_status: error`, exits 0. App UI remains usable.
+
+**Development:**
 
 ```powershell
 pip install -r sidecar/requirements.txt
 # extract vosk-model-small-en-us-0.15 into sidecar/models/
+# or: npm run sidecar:prepare
 ```
+
+**Packaged installs:** model + runtime ship inside the NSIS installer; errors ask the user to Restart Sidecar or reinstall (no pip).
 
 ## React → Rust commands
 
@@ -83,9 +88,10 @@ pip install -r sidecar/requirements.txt
 
 ### Microphone selection
 
-Browser `deviceId` is not usable by sounddevice. The UI persists the device **label**; Rust passes `--device-name` to `vosk_listener.py`, which substring-matches `sounddevice` input names. Empty/null → system default. Changing the mic in Settings (or Restart Sidecar) relaunches with the preferred label.
+Browser `deviceId` is not usable by sounddevice. The UI persists the device **label**; Rust passes `--device-name` to the sidecar, which substring-matches `sounddevice` input names. Empty/null → system default. Changing the mic in Settings (or Restart Sidecar) relaunches with the preferred label.
 
 ## Process selection
 
-1. `sidecar/vosk_listener.py` (default)
-2. `mock_listener.py` if Vosk script missing or `PHASMO_VOICE_MOCK=1`
+1. Packaged `phasmophobia-voice.exe` (resource/staged/dist) with absolute `--model`
+2. `sidecar/vosk_listener.py` via `py`/`python` (development)
+3. `mock_listener.py` if Vosk unavailable or `PHASMO_VOICE_MOCK=1`

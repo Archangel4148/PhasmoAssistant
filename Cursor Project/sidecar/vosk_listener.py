@@ -4,6 +4,9 @@ Phase 6 Vosk voice sidecar.
 
 Pipeline: microphone → Vosk → wake word "trigger" → utterance emit → Rust/TS domain.
 JSON on stdout only. Logs on stderr.
+
+Packaged builds (PyInstaller) receive an absolute --model path from Rust.
+Dev runs resolve the model next to this script under sidecar/models/.
 """
 
 from __future__ import annotations
@@ -21,6 +24,18 @@ WAKE_WORD = "trigger"
 ARMED_WINDOW_SECONDS = 4.0
 
 MODEL_DIR_NAME = "vosk-model-small-en-us-0.15"
+
+
+def is_frozen() -> bool:
+    return bool(getattr(sys, "frozen", False))
+
+
+def app_base_dir() -> Path:
+    """Directory containing the script or the frozen executable."""
+    if is_frozen():
+        return Path(sys.executable).resolve().parent
+    return Path(__file__).resolve().parent
+
 
 
 def emit(payload: dict[str, Any]) -> None:
@@ -52,19 +67,36 @@ def emit_utterance(text: str) -> None:
 
 
 def default_model_path() -> Path:
-    return Path(__file__).resolve().parent / "models" / MODEL_DIR_NAME
+    """Fallback when Rust does not pass --model (dev / manual runs)."""
+    base = app_base_dir()
+    packaged = base.parent / "models" / MODEL_DIR_NAME
+    if packaged.is_dir():
+        return packaged
+    return base / "models" / MODEL_DIR_NAME
 
 
 def missing_model_message(model_path: Path) -> str:
+    if is_frozen():
+        return (
+            f"Vosk model not found at '{model_path}'. "
+            "Reinstall Phasmophobia Companion or use Restart Sidecar. "
+            "Non-voice features remain available."
+        )
     return (
         f"Vosk model not found at '{model_path}'. "
         "Download vosk-model-small-en-us-0.15 from https://alphacephei.com/vosk/models "
-        f"and extract it to sidecar/models/{MODEL_DIR_NAME}/. "
+        f"and extract it to sidecar/models/{MODEL_DIR_NAME}/ "
+        "(or run npm run sidecar:prepare). "
         "Then use Restart Sidecar. Non-voice features remain available."
     )
 
 
 def missing_deps_message(error: BaseException) -> str:
+    if is_frozen():
+        return (
+            f"Voice runtime failed to load ({error}). "
+            "Reinstall Phasmophobia Companion or use Restart Sidecar."
+        )
     return (
         "Voice dependencies are not installed "
         f"({error}). Run: pip install -r sidecar/requirements.txt "
@@ -102,8 +134,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--model",
         type=str,
-        default=str(default_model_path()),
-        help="Path to Vosk model directory",
+        default=None,
+        help="Path to Vosk model directory (Rust passes this in packaged builds)",
     )
     parser.add_argument(
         "--device",
@@ -291,7 +323,8 @@ def main() -> int:
     args = parse_args()
     if args.mock or os.environ.get("PHASMO_VOICE_MOCK") == "1":
         return run_mock_idle()
-    return run_vosk(Path(args.model), args.device, args.device_name, args.samplerate)
+    model_path = Path(args.model) if args.model else default_model_path()
+    return run_vosk(model_path, args.device, args.device_name, args.samplerate)
 
 
 if __name__ == "__main__":

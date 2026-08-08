@@ -1,4 +1,4 @@
-//! Exactly one Python voice sidecar process.
+//! Exactly one voice sidecar process (packaged exe preferred; Python script for dev).
 
 mod protocol;
 
@@ -15,6 +15,10 @@ use std::thread;
 use std::time::Duration;
 
 use tauri::{AppHandle, Emitter, Manager};
+
+const MODEL_DIR_NAME: &str = "vosk-model-small-en-us-0.15";
+const PACKAGED_EXE_NAME: &str = "phasmophobia-voice.exe";
+const PACKAGED_DIR_NAME: &str = "phasmophobia-voice";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -59,6 +63,17 @@ struct SidecarInner {
     generation: u64,
     /// Preferred microphone label (matched in Python via sounddevice name).
     preferred_device_name: Option<String>,
+}
+
+enum SidecarLaunch {
+    PackagedExe {
+        exe: PathBuf,
+        model_dir: PathBuf,
+    },
+    PythonScript {
+        script: PathBuf,
+        using_mock: bool,
+    },
 }
 
 impl SidecarManager {
@@ -132,9 +147,20 @@ impl SidecarManager {
     pub fn start(&self, app: &AppHandle) -> Result<(), String> {
         self.stop(app)?;
 
-        let (script, using_mock) = resolve_sidecar_script(app)?;
+        let launch = resolve_sidecar_launch(app)?;
         let device_name = self.preferred_device_name();
-        let mut command = build_python_command(&script, using_mock, device_name.as_deref())?;
+        let using_mock = matches!(
+            launch,
+            SidecarLaunch::PythonScript {
+                using_mock: true,
+                ..
+            }
+        );
+        let launch_label = match &launch {
+            SidecarLaunch::PackagedExe { exe, .. } => exe.display().to_string(),
+            SidecarLaunch::PythonScript { script, .. } => script.display().to_string(),
+        };
+        let mut command = build_sidecar_command(&launch, device_name.as_deref())?;
 
         #[cfg(windows)]
         {
@@ -149,11 +175,13 @@ impl SidecarManager {
             .stderr(Stdio::piped())
             .env("PYTHONUNBUFFERED", "1");
 
-        let mut child = command.spawn().map_err(|error| {
-            format!(
-                "Failed to launch Python sidecar ({}): {error}. Install Python 3 and ensure `py` or `python` is on PATH.",
-                script.display()
-            )
+        let mut child = command.spawn().map_err(|error| match &launch {
+            SidecarLaunch::PackagedExe { .. } => format!(
+                "Failed to launch packaged voice sidecar ({launch_label}): {error}. Try Restart Sidecar or reinstall the app."
+            ),
+            SidecarLaunch::PythonScript { .. } => format!(
+                "Failed to launch Python sidecar ({launch_label}): {error}. Install Python 3 and ensure `py` or `python` is on PATH, or run `npm run sidecar:prepare` for a packaged binary."
+            ),
         })?;
 
         let stdout = child
@@ -284,29 +312,155 @@ impl Default for SidecarManager {
     }
 }
 
-fn resolve_sidecar_script(app: &AppHandle) -> Result<(PathBuf, bool), String> {
+fn resolve_sidecar_launch(app: &AppHandle) -> Result<SidecarLaunch, String> {
     let force_mock = std::env::var("PHASMO_VOICE_MOCK")
         .map(|value| value == "1" || value.eq_ignore_ascii_case("true"))
         .unwrap_or(false);
 
-    let vosk = candidate_scripts(app, "vosk_listener.py");
-    let mock = candidate_scripts(app, "mock_listener.py");
-
     if force_mock {
-        let path = mock.into_iter().find(|path| path.is_file()).ok_or_else(|| {
-            "mock_listener.py not found (PHASMO_VOICE_MOCK=1)".to_string()
-        })?;
-        return Ok((path, true));
+        let path = candidate_scripts(app, "mock_listener.py")
+            .into_iter()
+            .find(|path| path.is_file())
+            .ok_or_else(|| "mock_listener.py not found (PHASMO_VOICE_MOCK=1)".to_string())?;
+        return Ok(SidecarLaunch::PythonScript {
+            script: path,
+            using_mock: true,
+        });
     }
 
+    if let Some((exe, model_dir)) = resolve_packaged_exe(app) {
+        return Ok(SidecarLaunch::PackagedExe { exe, model_dir });
+    }
+
+    let vosk = candidate_scripts(app, "vosk_listener.py");
     if let Some(path) = vosk.into_iter().find(|path| path.is_file()) {
-        return Ok((path, false));
+        return Ok(SidecarLaunch::PythonScript {
+            script: path,
+            using_mock: false,
+        });
     }
 
-    let path = mock.into_iter().find(|path| path.is_file()).ok_or_else(|| {
-        "No sidecar script found. Expected sidecar/vosk_listener.py".to_string()
-    })?;
-    Ok((path, true))
+    let path = candidate_scripts(app, "mock_listener.py")
+        .into_iter()
+        .find(|path| path.is_file())
+        .ok_or_else(|| {
+            "No voice sidecar found. Expected packaged phasmophobia-voice.exe or sidecar/vosk_listener.py"
+                .to_string()
+        })?;
+    Ok(SidecarLaunch::PythonScript {
+        script: path,
+        using_mock: true,
+    })
+}
+
+fn resolve_packaged_exe(app: &AppHandle) -> Option<(PathBuf, PathBuf)> {
+    for exe in candidate_packaged_exes(app) {
+        if !exe.is_file() {
+            continue;
+        }
+        if let Some(model_dir) = resolve_model_dir_for_exe(app, &exe) {
+            return Some((exe, model_dir));
+        }
+    }
+    None
+}
+
+fn candidate_packaged_exes(app: &AppHandle) -> Vec<PathBuf> {
+    let mut candidates: Vec<PathBuf> = Vec::new();
+
+    if let Ok(resource) = app.path().resource_dir() {
+        candidates.push(
+            resource
+                .join(PACKAGED_DIR_NAME)
+                .join(PACKAGED_EXE_NAME),
+        );
+    }
+
+    let mut from_manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    // src-tauri/resources/phasmophobia-voice/phasmophobia-voice.exe
+    candidates.push(
+        from_manifest
+            .join("resources")
+            .join(PACKAGED_DIR_NAME)
+            .join(PACKAGED_EXE_NAME),
+    );
+    // ../sidecar/dist/phasmophobia-voice/phasmophobia-voice.exe
+    from_manifest.pop();
+    candidates.push(
+        from_manifest
+            .join("sidecar")
+            .join("dist")
+            .join(PACKAGED_DIR_NAME)
+            .join(PACKAGED_EXE_NAME),
+    );
+
+    if let Ok(cwd) = std::env::current_dir() {
+        candidates.push(
+            cwd.join("sidecar")
+                .join("dist")
+                .join(PACKAGED_DIR_NAME)
+                .join(PACKAGED_EXE_NAME),
+        );
+        candidates.push(
+            cwd.join("src-tauri")
+                .join("resources")
+                .join(PACKAGED_DIR_NAME)
+                .join(PACKAGED_EXE_NAME),
+        );
+        candidates.push(
+            cwd.join("..")
+                .join("sidecar")
+                .join("dist")
+                .join(PACKAGED_DIR_NAME)
+                .join(PACKAGED_EXE_NAME),
+        );
+    }
+
+    candidates
+}
+
+fn resolve_model_dir_for_exe(app: &AppHandle, exe: &Path) -> Option<PathBuf> {
+    let mut candidates: Vec<PathBuf> = Vec::new();
+
+    if let Ok(resource) = app.path().resource_dir() {
+        candidates.push(resource.join("models").join(MODEL_DIR_NAME));
+    }
+
+    // Staged next to resources/phasmophobia-voice → resources/models/...
+    if let Some(parent) = exe.parent().and_then(|p| p.parent()) {
+        candidates.push(parent.join("models").join(MODEL_DIR_NAME));
+    }
+
+    let mut from_manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    candidates.push(
+        from_manifest
+            .join("resources")
+            .join("models")
+            .join(MODEL_DIR_NAME),
+    );
+    from_manifest.pop();
+    candidates.push(
+        from_manifest
+            .join("sidecar")
+            .join("models")
+            .join(MODEL_DIR_NAME),
+    );
+
+    if let Ok(cwd) = std::env::current_dir() {
+        candidates.push(
+            cwd.join("sidecar")
+                .join("models")
+                .join(MODEL_DIR_NAME),
+        );
+        candidates.push(
+            cwd.join("src-tauri")
+                .join("resources")
+                .join("models")
+                .join(MODEL_DIR_NAME),
+        );
+    }
+
+    candidates.into_iter().find(|path| path.is_dir())
 }
 
 fn candidate_scripts(app: &AppHandle, file_name: &str) -> Vec<PathBuf> {
@@ -328,6 +482,28 @@ fn candidate_scripts(app: &AppHandle, file_name: &str) -> Vec<PathBuf> {
     }
 
     candidates
+}
+
+fn build_sidecar_command(
+    launch: &SidecarLaunch,
+    device_name: Option<&str>,
+) -> Result<Command, String> {
+    match launch {
+        SidecarLaunch::PackagedExe { exe, model_dir } => {
+            let mut command = Command::new(exe);
+            command.arg("--model");
+            command.arg(model_dir);
+            if let Some(name) = device_name {
+                command.arg("--device-name");
+                command.arg(name);
+            }
+            Ok(command)
+        }
+        SidecarLaunch::PythonScript {
+            script,
+            using_mock,
+        } => build_python_command(script, *using_mock, device_name),
+    }
 }
 
 fn build_python_command(
@@ -365,7 +541,7 @@ fn build_python_command(
     }
 
     Err(
-        "No Python interpreter found (tried py -3, python, python3). Install Python 3 to run the voice sidecar."
+        "No Python interpreter found (tried py -3, python, python3). Install Python 3 to run the voice sidecar in development, or run `npm run sidecar:prepare` / install a release build."
             .to_string(),
     )
 }

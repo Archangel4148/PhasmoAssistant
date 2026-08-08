@@ -368,8 +368,7 @@ Evidence, eliminated ghosts, running timers, timing timestamps/results, toasts.
 - Overlay “Reset layout” maximizes the overlay window and clears saved geometry.
 - Overlay stays click-through during play. **Edit overlay layout** (Settings → Windows) temporarily unmaximizes, enables focus/resize handles, then restores click-through on Done/Close.
 - Accent color drives CSS `--accent*` tokens on Main (header/panels/buttons) and overlay ghost text.
-- App icons generated from `assets/app-icon-master.png` via `npx tauri icon`.
-- Packaged PyInstaller voice binary remains the main gap for true one-click installs (Python + Vosk model still manual in dev).
+- App icons generated from `assets/app-icon.png` via `npx tauri icon` (see `src-tauri/icons/`, `public/favicon.png`).
 
 ---
 
@@ -436,24 +435,31 @@ Functional quality: idle CPU, sync/persist races, hydrate hardening, lint/type/t
 
 ### Still open
 
-- Packaged PyInstaller voice binary (needed for one-click distributable builds — see below)
 - Full Rust-owned mutation path for evidence (Main still mutates locally then publishes)
 
-### Distributable packaging & PyInstaller (planned)
+### Distributable packaging & PyInstaller (complete)
 
-Today the voice sidecar is a **Python script** Rust launches with `py`/`python` on PATH. That works in development, but for a clean installer you want:
+Release builds no longer require end users to install Python or download the Vosk model.
 
-1. **No separate Python install** for end users
-2. **Vosk model + deps** already inside the app bundle
-3. **One installer** (e.g. Tauri/NSIS or MSI) that drops Main + Overlay + sidecar + model
+**Prepare:** `npm run sidecar:prepare` (also runs as the first step of `npm run tauri:build`)
 
-**PyInstaller** (or similar: Nuitka, cx_Freeze) freezes `vosk_listener.py` + `sounddevice` + `vosk` into a single Windows `.exe` (plus accompanying data). Tauri’s build would then:
+1. Creates `.venv-sidecar` and installs `sidecar/requirements.txt` + PyInstaller
+2. Downloads `vosk-model-small-en-us-0.15` into `sidecar/models/` if missing
+3. Freezes `vosk_listener.py` → `sidecar/dist/phasmophobia-voice/` (onedir)
+4. Stages exe + model into `src-tauri/resources/` for Tauri bundling
 
-- Bundle that exe under `sidecar/` (or `resources/`)
-- Prefer launching the packaged binary instead of `python vosk_listener.py`
-- Ship the Vosk model next to it (or inside the frozen bundle)
+**Tauri:** `bundle.targets: ["nsis"]` and `bundle.resources` map staged folders to:
 
-Until that lands, users must install Python, `pip install -r sidecar/requirements.txt`, and download the Vosk model — fine for you as a developer, not for a public release.
+- `$RESOURCE/phasmophobia-voice/phasmophobia-voice.exe`
+- `$RESOURCE/models/vosk-model-small-en-us-0.15/`
+
+**Launch preference** (`src-tauri/src/sidecar/mod.rs`):
+
+1. Packaged `phasmophobia-voice.exe` + absolute `--model` (resource dir / staged / dist candidates)
+2. Else Python `vosk_listener.py` (dev)
+3. Else `mock_listener.py` / `PHASMO_VOICE_MOCK=1`
+
+Dev (`npm run tauri dev`) keeps using the Python script when the packaged exe is absent.
 
 ### Evidence difficulty modes (complete)
 
@@ -482,7 +488,7 @@ User-facing visual/UX refinement only. No domain, sync, or persistence behavior 
 - Offline fonts: Source Sans 3 Variable + IBM Plex Mono (bundled via `@fontsource`)
 - Shared chrome: `.panel`, `.panel-title`, `.btn-ghost`, `.btn-accent`, `.focus-ring`, `.accent-chip`
 - Light theme now remaps panel tokens (not shell-only)
-- Custom favicon (`public/favicon.svg`)
+- Custom favicon / desktop icons from `assets/app-icon.png` (`npx tauri icon`)
 
 ### UX / a11y
 
