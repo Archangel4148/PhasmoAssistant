@@ -7,3 +7,7 @@ export function formatDuration(totalSeconds: number): string {
 export function formatSpeedMps(speed: number): string {
   return `${speed.toFixed(1)} m/s`;
 }
+
+export function formatBpm(bpm: number): string {
+  return `${Math.round(bpm)} BPM`;
+}

@@ -13,15 +13,17 @@ function toSnapshotFromStore(): InvestigationSnapshot {
     evidence: state.evidence,
     eliminatedGhostIds: state.eliminatedGhostIds,
     timingMode: state.timingMode,
+    timingTimestampsMs: state.timingTimestampsMs,
+    timingResultCompletedAtMs: state.timingResultCompletedAtMs,
     smudgeTimer: state.smudgeTimer,
     huntTimer: state.huntTimer,
-    currentGhostSpeedMps: state.currentGhostSpeedMps,
     toasts: state.toasts,
     overlayAppearance: state.overlayAppearance,
+    settings: state.settings,
   };
 }
 
-/** Main window: publish local mutations to Rust for cross-window sync. */
+/** Main window: publish local mutations to Rust for Overlay consumers. */
 export function useMainInvestigationSync(): void {
   useEffect(() => {
     useInvestigationStore.getState().setSyncPublisher(true);

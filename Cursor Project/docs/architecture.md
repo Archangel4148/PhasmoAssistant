@@ -159,9 +159,7 @@ Defaults use muted slate (`#9aa7b8`) instead of bright white.
 ### Known limitations (Phase 4)
 
 - Overlay position/scale persistence is deferred (Phase 10).
-- Timing mode / footstep capture is deferred (Phase 9).
 - Full Rust-owned mutation path (commands for evidence changes) is still future work; Main mutates locally then publishes.
-- Mimic fake-orbs still not special-cased.
 
 ---
 
@@ -289,4 +287,47 @@ Duration presets live in session store and sync Main ↔ Overlay. Disk persisten
 
 - Expired timers stay past-threshold (amber, still counting) until Stop/Reset.
 - Auto-selecting smudge threshold from remaining ghosts is not implemented (manual presets).
-- Footstep timing mode remains Phase 9.
+
+---
+
+## Phase 9 — Footstep Timing (complete)
+
+### Scope
+
+Timing mode with global hotkey, Space/Numpad 0 footstep capture (up to 5 timestamps), SPEC speed formula, ghost comparison, and Overlay display.
+
+### Domain
+
+`src/domain/speed`:
+
+- `calculateFootstepSpeed` / `calculateGhostSpeedMps` — average interval → SPS → × 0.85 m/s, then ÷ ghost speed multiplier for base journal comparison
+- `compareSpeedToPossibleGhosts` — match normalized speed to possible ghosts within ±0.2 m/s of `referenceSpeedMps`
+
+### State / sync
+
+- `timingMode`, `timingTimestampsMs` (authoritative); `currentGhostSpeedMps` derived with ghost-speed multiplier
+- `settings.ghostSpeedMultiplier` (50/75/100/125/150%) normalizes observed speed to base journal m/s
+- `settings.timingResultHideAfterSeconds` (5–15, default 7) controls Overlay result fade
+- Enabling timing clears timestamps (new session); stopping keeps last result; Reset clears taps/speed
+- Completing 5 footsteps turns timing mode off; Overlay shows live speed while timing and fades the held result after the configured delay
+- Snapshot syncs timestamps + settings so Overlay derives the same speed/BPM/matches
+
+### Hotkeys
+
+- `Ctrl+Shift+T` / `CommandOrControl+Shift+T` — toggle timing (`tauri-plugin-global-shortcut`)
+- While timing is on: global `Space` and `num0` record footsteps (unregistered when idle so Space is not stolen)
+- Defaults live in `src/config/hotkeys.ts` for Phase 10 configurability
+- Local keydown fallback when the plugin is unavailable
+
+### UI
+
+- Investigation Tools: Start/Stop Timing, Reset, live speed/BPM, close-match ghost names
+- Overlay **top-right under timers**: live speed while armed; after completion, held result then fade
+- Settings: Ghost Speed Mode radios + Timing Result Overlay hide delay
+- Voice `trigger timer` toggles timing mode
+
+### Known limitations (Phase 9)
+
+- Variable-speed ghosts (ranges / null reference) are skipped or matched only on a single reference value.
+- Hotkey bindings are not yet user-configurable (Phase 10).
+- Global Space while timing will intercept Space system-wide (by design for in-game capture).

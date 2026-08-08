@@ -7,6 +7,7 @@ import { Header } from "../../components/Header";
 import { InvestigationToolsPanel } from "../../components/InvestigationToolsPanel";
 import { SettingsDialog } from "../../components/SettingsDialog";
 import { useMainInvestigationSync } from "../../hooks/useInvestigationSync";
+import { useTimingHotkeys } from "../../hooks/useTimingHotkeys";
 import { useVoiceSidecarBridge } from "../../hooks/useVoiceSidecarBridge";
 import { restartVoiceSidecar } from "../../services/sidecarApi";
 import { useInvestigationStore } from "../../state/investigationStore";
@@ -15,6 +16,7 @@ import type { DiagnosticsSnapshot } from "../../types/diagnostics";
 
 export function MainWindow() {
   useMainInvestigationSync();
+  useTimingHotkeys(true);
   useVoiceSidecarBridge();
 
   const [settingsOpen, setSettingsOpen] = useState(false);

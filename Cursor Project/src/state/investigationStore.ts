@@ -12,6 +12,11 @@ import {
   type EvidenceMap,
 } from "../domain/evidence";
 import {
+  appendFootstepTimestamp,
+  calculateGhostSpeedMps,
+  MAX_FOOTSTEP_TIMESTAMPS,
+} from "../domain/speed";
+import {
   createIdleTimer,
   DEFAULT_HUNT_COOLDOWN_SECONDS,
   DEFAULT_SMUDGE_SECONDS,
@@ -23,6 +28,11 @@ import { EVIDENCE_BY_ID } from "../data/evidence";
 import type { VoiceAction } from "../domain/voice";
 import type { EvidenceEntry, EvidenceId } from "../types/evidence";
 import type { GhostDisplayItem } from "../types/ghost";
+import {
+  DEFAULT_INVESTIGATION_SETTINGS,
+  resolveInvestigationSettings,
+  type InvestigationSettings,
+} from "../types/investigationSettings";
 import type { InvestigationSnapshot, OverlayToast } from "../types/sync";
 import type { InvestigationTimer } from "../types/timer";
 import {
@@ -40,11 +50,14 @@ interface InvestigationView {
   ghosts: GhostDisplayItem[];
   possibleGhostCount: number;
   timingMode: boolean;
+  timingTimestampsMs: number[];
+  timingResultCompletedAtMs: number | null;
   smudgeTimer: InvestigationTimer;
   huntTimer: InvestigationTimer;
   currentGhostSpeedMps: number | null;
   toasts: OverlayToast[];
   overlayAppearance: OverlayAppearanceSettings;
+  settings: InvestigationSettings;
 }
 
 interface InvestigationStoreState extends InvestigationView {
@@ -59,8 +72,12 @@ interface InvestigationStoreState extends InvestigationView {
     voiceConfirmed?: boolean,
   ) => void;
   setOverlayAppearance: (patch: Partial<OverlayAppearanceSettings>) => void;
+  setInvestigationSettings: (patch: Partial<InvestigationSettings>) => void;
   applyVoiceAction: (action: VoiceAction) => void;
   toggleGhostEliminated: (ghostId: string) => void;
+  toggleTimingMode: () => void;
+  recordFootstep: (nowMs?: number) => void;
+  resetTiming: () => void;
   startSmudgeTimer: () => void;
   resetSmudgeTimer: () => void;
   setSmudgeDurationSeconds: (durationSeconds: number) => void;
@@ -73,11 +90,14 @@ interface InvestigationStoreState extends InvestigationView {
 type InvestigationExtras = Pick<
   InvestigationView,
   | "timingMode"
+  | "timingTimestampsMs"
+  | "timingResultCompletedAtMs"
   | "smudgeTimer"
   | "huntTimer"
   | "currentGhostSpeedMps"
   | "toasts"
   | "overlayAppearance"
+  | "settings"
 >;
 
 function buildGhostView(
@@ -146,16 +166,47 @@ function resolveTimer(
   };
 }
 
+function resolveTimestamps(value: unknown): number[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.filter(
+    (entry): entry is number =>
+      typeof entry === "number" && Number.isFinite(entry),
+  );
+}
+
+function deriveSpeedMps(
+  timestampsMs: readonly number[],
+  settings: InvestigationSettings,
+): number | null {
+  return calculateGhostSpeedMps(timestampsMs, settings.ghostSpeedMultiplier);
+}
+
+function withDerivedSpeed(
+  extras: Omit<InvestigationExtras, "currentGhostSpeedMps">,
+): InvestigationExtras {
+  return {
+    ...extras,
+    currentGhostSpeedMps: deriveSpeedMps(
+      extras.timingTimestampsMs,
+      extras.settings,
+    ),
+  };
+}
+
 function toSnapshot(state: InvestigationView): InvestigationSnapshot {
   return {
     evidence: state.evidence,
     eliminatedGhostIds: state.eliminatedGhostIds,
     timingMode: state.timingMode,
+    timingTimestampsMs: state.timingTimestampsMs,
+    timingResultCompletedAtMs: state.timingResultCompletedAtMs,
     smudgeTimer: state.smudgeTimer,
     huntTimer: state.huntTimer,
-    currentGhostSpeedMps: state.currentGhostSpeedMps,
     toasts: state.toasts,
     overlayAppearance: state.overlayAppearance,
+    settings: state.settings,
   };
 }
 
@@ -205,21 +256,27 @@ function trimToasts(toasts: OverlayToast[]): OverlayToast[] {
 function keepSessionExtras(state: InvestigationView): InvestigationExtras {
   return {
     timingMode: state.timingMode,
+    timingTimestampsMs: state.timingTimestampsMs,
+    timingResultCompletedAtMs: state.timingResultCompletedAtMs,
     smudgeTimer: state.smudgeTimer,
     huntTimer: state.huntTimer,
     currentGhostSpeedMps: state.currentGhostSpeedMps,
     toasts: state.toasts,
     overlayAppearance: state.overlayAppearance,
+    settings: state.settings,
   };
 }
 
 const initialView = buildInvestigationView(createInitialEvidenceMap(), [], {
   timingMode: false,
+  timingTimestampsMs: [],
+  timingResultCompletedAtMs: null,
   smudgeTimer: createIdleTimer(DEFAULT_SMUDGE_SECONDS),
   huntTimer: createIdleTimer(DEFAULT_HUNT_COOLDOWN_SECONDS),
   currentGhostSpeedMps: null,
   toasts: [],
   overlayAppearance: { ...DEFAULT_OVERLAY_APPEARANCE },
+  settings: { ...DEFAULT_INVESTIGATION_SETTINGS },
 });
 
 export const useInvestigationStore = create<InvestigationStoreState>((set, get) => ({
@@ -230,15 +287,23 @@ export const useInvestigationStore = create<InvestigationStoreState>((set, get) 
 
   hydrateFromSnapshot: (snapshot) => {
     const evidence = resolveEvidenceMap(snapshot.evidence);
+    const timingTimestampsMs = resolveTimestamps(snapshot.timingTimestampsMs);
+    const settings = resolveInvestigationSettings(snapshot.settings);
 
     set(
       buildInvestigationView(evidence, snapshot.eliminatedGhostIds ?? [], {
         timingMode: snapshot.timingMode ?? false,
+        timingTimestampsMs,
+        timingResultCompletedAtMs:
+          typeof snapshot.timingResultCompletedAtMs === "number"
+            ? snapshot.timingResultCompletedAtMs
+            : null,
         smudgeTimer: resolveTimer(snapshot.smudgeTimer, DEFAULT_SMUDGE_SECONDS),
         huntTimer: resolveTimer(snapshot.huntTimer, DEFAULT_HUNT_COOLDOWN_SECONDS),
-        currentGhostSpeedMps: snapshot.currentGhostSpeedMps ?? null,
+        currentGhostSpeedMps: deriveSpeedMps(timingTimestampsMs, settings),
         toasts: snapshot.toasts ?? [],
         overlayAppearance: resolveOverlayAppearance(snapshot.overlayAppearance),
+        settings,
       }),
     );
   },
@@ -301,6 +366,24 @@ export const useInvestigationStore = create<InvestigationStoreState>((set, get) 
     publishIfNeeded(get());
   },
 
+  setInvestigationSettings: (patch) => {
+    const previous = get();
+    const settings = resolveInvestigationSettings({
+      ...previous.settings,
+      ...patch,
+    });
+
+    set({
+      settings,
+      currentGhostSpeedMps: deriveSpeedMps(
+        previous.timingTimestampsMs,
+        settings,
+      ),
+      isSyncPublisher: previous.isSyncPublisher,
+    });
+    publishIfNeeded(get());
+  },
+
   applyVoiceAction: (action) => {
     const previous = get();
 
@@ -339,18 +422,8 @@ export const useInvestigationStore = create<InvestigationStoreState>((set, get) 
         break;
       }
       case "toggle_timing_mode": {
-        const enabled = !previous.timingMode;
-        const toast: OverlayToast = {
-          id: `toast-timing-${Date.now()}`,
-          message: enabled ? "✓ Timing Started" : "✓ Timing Stopped",
-          createdAtMs: Date.now(),
-        };
-        set({
-          timingMode: enabled,
-          toasts: trimToasts([...previous.toasts, toast]),
-          isSyncPublisher: previous.isSyncPublisher,
-        });
-        break;
+        get().toggleTimingMode();
+        return;
       }
       case "start_hunt_cooldown": {
         const wasActive = previous.huntTimer.startedAtMs !== null;
@@ -386,6 +459,92 @@ export const useInvestigationStore = create<InvestigationStoreState>((set, get) 
       keepSessionExtras(previous),
     );
     set({ ...next, isSyncPublisher: previous.isSyncPublisher });
+    publishIfNeeded(get());
+  },
+
+  toggleTimingMode: () => {
+    const previous = get();
+    const enabled = !previous.timingMode;
+    const now = Date.now();
+    const toast: OverlayToast = {
+      id: `toast-timing-${now}`,
+      message: enabled ? "✓ Timing Started" : "✓ Timing Stopped",
+      createdAtMs: now,
+    };
+
+    // New session when enabling: clear prior timestamps. Stopping keeps last result.
+    const timingTimestampsMs = enabled ? [] : previous.timingTimestampsMs;
+    const timingResultCompletedAtMs = enabled
+      ? null
+      : timingTimestampsMs.length >= 2
+        ? now
+        : previous.timingResultCompletedAtMs;
+
+    set({
+      ...withDerivedSpeed({
+        timingMode: enabled,
+        timingTimestampsMs,
+        timingResultCompletedAtMs,
+        smudgeTimer: previous.smudgeTimer,
+        huntTimer: previous.huntTimer,
+        toasts: trimToasts([...previous.toasts, toast]),
+        overlayAppearance: previous.overlayAppearance,
+        settings: previous.settings,
+      }),
+      isSyncPublisher: previous.isSyncPublisher,
+    });
+    publishIfNeeded(get());
+  },
+
+  recordFootstep: (nowMs = Date.now()) => {
+    const previous = get();
+    if (!previous.timingMode) {
+      return;
+    }
+
+    const timingTimestampsMs = appendFootstepTimestamp(
+      previous.timingTimestampsMs,
+      nowMs,
+    );
+    if (timingTimestampsMs === previous.timingTimestampsMs) {
+      return;
+    }
+
+    const complete = timingTimestampsMs.length >= MAX_FOOTSTEP_TIMESTAMPS;
+    const toast: OverlayToast | null = complete
+      ? {
+          id: `toast-timing-complete-${nowMs}`,
+          message: "✓ Timing Complete",
+          createdAtMs: nowMs,
+        }
+      : null;
+
+    set({
+      timingTimestampsMs,
+      currentGhostSpeedMps: deriveSpeedMps(
+        timingTimestampsMs,
+        previous.settings,
+      ),
+      timingMode: complete ? false : previous.timingMode,
+      timingResultCompletedAtMs: complete
+        ? nowMs
+        : previous.timingResultCompletedAtMs,
+      toasts: toast
+        ? trimToasts([...previous.toasts, toast])
+        : previous.toasts,
+      isSyncPublisher: previous.isSyncPublisher,
+    });
+    publishIfNeeded(get());
+  },
+
+  resetTiming: () => {
+    const previous = get();
+    set({
+      timingTimestampsMs: [],
+      currentGhostSpeedMps: null,
+      timingResultCompletedAtMs: null,
+      isSyncPublisher: previous.isSyncPublisher,
+    });
     publishIfNeeded(get());
   },
 
@@ -463,12 +622,14 @@ export const useInvestigationStore = create<InvestigationStoreState>((set, get) 
     const previous = get();
     const next = buildInvestigationView(createInitialEvidenceMap(), [], {
       timingMode: false,
-      // Keep configured thresholds; clear running stopwatches.
+      timingTimestampsMs: [],
+      timingResultCompletedAtMs: null,
       smudgeTimer: createIdleTimer(previous.smudgeTimer.durationSeconds),
       huntTimer: createIdleTimer(previous.huntTimer.durationSeconds),
       currentGhostSpeedMps: null,
       toasts: [],
       overlayAppearance: previous.overlayAppearance,
+      settings: previous.settings,
     });
     set({ ...next, isSyncPublisher: previous.isSyncPublisher });
     publishIfNeeded(get());

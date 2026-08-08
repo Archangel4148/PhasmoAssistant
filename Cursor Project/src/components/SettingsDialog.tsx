@@ -2,6 +2,13 @@ import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useInvestigationStore } from "../state/investigationStore";
 import {
+  clampTimingResultHideAfterSeconds,
+  GHOST_SPEED_MULTIPLIER_OPTIONS,
+  TIMING_RESULT_HIDE_MAX_SECONDS,
+  TIMING_RESULT_HIDE_MIN_SECONDS,
+  type GhostSpeedMultiplier,
+} from "../types/investigationSettings";
+import {
   clampTickerSpeed,
   DEFAULT_OVERLAY_APPEARANCE,
   normalizeHexColor,
@@ -38,8 +45,12 @@ const PRESET_COLORS = [
 
 export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
   const appearance = useInvestigationStore((state) => state.overlayAppearance);
+  const settings = useInvestigationStore((state) => state.settings);
   const setOverlayAppearance = useInvestigationStore(
     (state) => state.setOverlayAppearance,
+  );
+  const setInvestigationSettings = useInvestigationStore(
+    (state) => state.setInvestigationSettings,
   );
   const [hexDraft, setHexDraft] = useState(appearance.ghostTextColor);
 
@@ -78,7 +89,7 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                   Settings
                 </h2>
                 <p className="text-xs text-zinc-500">
-                  Overlay appearance syncs live to the HUD
+                  Overlay and investigation options sync live to the HUD
                 </p>
               </div>
               <button
@@ -90,7 +101,95 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
               </button>
             </div>
 
-            <div className="overflow-y-auto px-5 py-4">
+            <div className="space-y-3 overflow-y-auto px-5 py-4">
+              <section className="rounded-lg border border-zinc-800/80 bg-zinc-950/50 px-3 py-3">
+                <p className="text-sm font-medium text-zinc-200">
+                  Ghost Speed Mode
+                </p>
+                <p className="mt-0.5 text-xs text-zinc-500">
+                  Match custom difficulty Ghost Speed so footstep results map to
+                  base journal speeds
+                </p>
+
+                <fieldset className="mt-3 space-y-1.5">
+                  <legend className="sr-only">Ghost speed multiplier</legend>
+                  {GHOST_SPEED_MULTIPLIER_OPTIONS.map((option) => {
+                    const selected =
+                      settings.ghostSpeedMultiplier === option.multiplier;
+                    return (
+                      <label
+                        key={option.id}
+                        className={`flex cursor-pointer items-center gap-2.5 rounded-md border px-2.5 py-2 text-sm transition-colors ${
+                          selected
+                            ? "border-amber-500/40 bg-amber-500/10 text-amber-100"
+                            : "border-zinc-800 bg-zinc-900/40 text-zinc-300 hover:border-zinc-700"
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="ghost-speed-multiplier"
+                          value={option.multiplier}
+                          checked={selected}
+                          onChange={() => {
+                            setInvestigationSettings({
+                              ghostSpeedMultiplier:
+                                option.multiplier as GhostSpeedMultiplier,
+                            });
+                          }}
+                          className="accent-amber-400"
+                        />
+                        <span>{option.label}</span>
+                      </label>
+                    );
+                  })}
+                </fieldset>
+              </section>
+
+              <section className="rounded-lg border border-zinc-800/80 bg-zinc-950/50 px-3 py-3">
+                <p className="text-sm font-medium text-zinc-200">
+                  Timing Result Overlay
+                </p>
+                <p className="mt-0.5 text-xs text-zinc-500">
+                  How long the HUD keeps the finished speed result before fading
+                </p>
+
+                <div className="mt-4">
+                  <div className="flex items-center justify-between gap-2">
+                    <label
+                      htmlFor="timing-result-hide"
+                      className="text-[11px] font-medium uppercase tracking-wide text-zinc-500"
+                    >
+                      Hide after
+                    </label>
+                    <span className="font-mono text-[11px] text-zinc-400">
+                      {settings.timingResultHideAfterSeconds}s
+                    </span>
+                  </div>
+                  <input
+                    id="timing-result-hide"
+                    type="range"
+                    min={TIMING_RESULT_HIDE_MIN_SECONDS}
+                    max={TIMING_RESULT_HIDE_MAX_SECONDS}
+                    step={1}
+                    value={settings.timingResultHideAfterSeconds}
+                    onChange={(event) => {
+                      setInvestigationSettings({
+                        timingResultHideAfterSeconds:
+                          clampTimingResultHideAfterSeconds(
+                            Number(event.target.value),
+                          ),
+                      });
+                    }}
+                    className="mt-2 w-full accent-zinc-300"
+                  />
+                  <p className="mt-1 text-[11px] text-zinc-500">
+                    {TIMING_RESULT_HIDE_MIN_SECONDS}–
+                    {TIMING_RESULT_HIDE_MAX_SECONDS}s · Main window keeps the
+                    result until the next timing session
+                  </p>
+                </div>
+              </section>
+
               <section className="rounded-lg border border-zinc-800/80 bg-zinc-950/50 px-3 py-3">
                 <p className="text-sm font-medium text-zinc-200">Overlay HUD</p>
                 <p className="mt-0.5 text-xs text-zinc-500">
@@ -228,7 +327,7 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                 </div>
               </section>
 
-              <ul className="mt-3 space-y-2">
+              <ul className="space-y-2">
                 {PLACEHOLDER_SECTIONS.map((section) => (
                   <li
                     key={section.title}

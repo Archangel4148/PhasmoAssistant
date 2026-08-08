@@ -1,4 +1,5 @@
 import type { EvidenceMap } from "../domain/evidence";
+import type { InvestigationSettings } from "./investigationSettings";
 import type { OverlayAppearanceSettings } from "./overlayAppearance";
 import type { InvestigationTimer } from "./timer";
 
@@ -13,11 +14,18 @@ export interface InvestigationSnapshot {
   evidence: EvidenceMap;
   eliminatedGhostIds: string[];
   timingMode: boolean;
-  /** Deadline-based smudge timer; remaining time is derived client-side. */
+  /** Absolute footstep timestamps (ms) for the active/last timing session. */
+  timingTimestampsMs: number[];
+  /**
+   * When the last timing session produced a final result (ms since epoch).
+   * Used by Overlay to auto-hide after `settings.timingResultHideAfterSeconds`.
+   */
+  timingResultCompletedAtMs: number | null;
+  /** Threshold-based smudge stopwatch; elapsed time is derived client-side. */
   smudgeTimer: InvestigationTimer;
-  /** Deadline-based hunt cooldown timer. */
+  /** Threshold-based hunt cooldown stopwatch. */
   huntTimer: InvestigationTimer;
-  currentGhostSpeedMps: number | null;
   toasts: OverlayToast[];
   overlayAppearance: OverlayAppearanceSettings;
+  settings: InvestigationSettings;
 }

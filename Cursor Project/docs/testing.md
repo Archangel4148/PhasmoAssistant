@@ -198,6 +198,34 @@ Manual verification:
 - [x] Timers do not drift significantly
 - [x] Timers correctly expire
 
+---
+
+## Phase 9 checks
+
+```powershell
+npm run typecheck
+npm run test
+cd src-tauri; cargo check
+npm run tauri dev
+```
+
+Manual verification:
+
+- Ctrl+Shift+T toggles timing mode (toast + Overlay indicator)
+- With timing on, Space / Numpad 0 record up to 5 steps with live speed/BPM; 5th step auto-ends timing
+- Overlay top-right (under timers) shows live speed, then fades the held result after Settings hide delay
+- Settings → Ghost Speed Mode (50–150%) normalizes results; Timing Result Overlay hide delay (5–15s)
+- Reset clears steps/speed; Start Timing begins a new session (clears prior result)
+- Close-match possible ghosts listed under the speed readout
+- `trigger timer` voice command toggles timing
+
+### Acceptance criteria (Phase 9)
+
+- [x] Five timestamps can be captured
+- [x] Speed calculation matches the specified formula
+- [x] Timing state is synchronized across windows
+- [x] Reset/new sessions work correctly
+
 ## Automated tests
 
 Domain logic tests live alongside implementation:
@@ -205,6 +233,7 @@ Domain logic tests live alongside implementation:
 - `src/domain/evidence/evidenceRules.test.ts`
 - `src/domain/ghosts/filterPossibleGhosts.test.ts`
 - `src/domain/timers/timerState.test.ts`
+- `src/domain/speed/calculateSpeed.test.ts`
 - `src/domain/voice/normalizeCommand.test.ts`
 
 Run all tests:
@@ -218,8 +247,6 @@ Watch mode:
 ```powershell
 npm run test:watch
 ```
-
-Future phases will add speed-calculator tests as that domain is implemented.
 
 Rust protocol parsing tests:
 

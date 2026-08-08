@@ -2,6 +2,11 @@ import { OverlayGhostList } from "./OverlayGhostList";
 import { OverlayTimers } from "./OverlayTimers";
 import { OverlayTimingIndicator } from "./OverlayTimingIndicator";
 import { OverlayToasts } from "./OverlayToasts";
+import {
+  calculateFootstepSpeed,
+  compareSpeedToPossibleGhosts,
+} from "../../domain/speed";
+import { useClock } from "../../hooks/useClock";
 import { useOverlayInvestigationSync } from "../../hooks/useInvestigationSync";
 import { useInvestigationStore } from "../../state/investigationStore";
 
@@ -10,12 +15,44 @@ export function OverlayWindow() {
 
   const ghosts = useInvestigationStore((state) => state.ghosts);
   const timingMode = useInvestigationStore((state) => state.timingMode);
+  const timingTimestampsMs = useInvestigationStore(
+    (state) => state.timingTimestampsMs,
+  );
+  const timingResultCompletedAtMs = useInvestigationStore(
+    (state) => state.timingResultCompletedAtMs,
+  );
+  const currentGhostSpeedMps = useInvestigationStore(
+    (state) => state.currentGhostSpeedMps,
+  );
   const smudgeTimer = useInvestigationStore((state) => state.smudgeTimer);
   const huntTimer = useInvestigationStore((state) => state.huntTimer);
   const toasts = useInvestigationStore((state) => state.toasts);
   const overlayAppearance = useInvestigationStore(
     (state) => state.overlayAppearance,
   );
+  const settings = useInvestigationStore((state) => state.settings);
+
+  const speedResult = calculateFootstepSpeed(timingTimestampsMs, {
+    ghostSpeedMultiplier: settings.ghostSpeedMultiplier,
+  });
+  const closeMatches = compareSpeedToPossibleGhosts(
+    currentGhostSpeedMps,
+    ghosts,
+  ).filter((match) => match.isClose);
+
+  const hasResult =
+    timingTimestampsMs.length > 0 || currentGhostSpeedMps !== null;
+  const watchingHide =
+    !timingMode &&
+    timingResultCompletedAtMs !== null &&
+    hasResult;
+  const nowMs = useClock(watchingHide);
+  const hideAfterMs = settings.timingResultHideAfterSeconds * 1000;
+  const fadedOut =
+    watchingHide &&
+    timingResultCompletedAtMs !== null &&
+    nowMs >= timingResultCompletedAtMs + hideAfterMs;
+  const timingVisible = timingMode || (hasResult && !fadedOut);
 
   return (
     <div className="pointer-events-none relative h-screen w-screen overflow-hidden bg-transparent text-zinc-100">
@@ -27,12 +64,18 @@ export function OverlayWindow() {
         />
       </div>
 
-      <div className="absolute right-4 top-4">
+      <div className="absolute right-4 top-4 flex flex-col items-end gap-2">
         <OverlayTimers smudgeTimer={smudgeTimer} huntTimer={huntTimer} />
-      </div>
-
-      <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
-        <OverlayTimingIndicator active={timingMode} />
+        <OverlayTimingIndicator
+          active={timingMode}
+          visible={timingVisible}
+          speedMps={currentGhostSpeedMps}
+          observedSpeedMps={speedResult.observedMetersPerSecond}
+          beatsPerMinute={speedResult.beatsPerMinute}
+          stepCount={timingTimestampsMs.length}
+          ghostSpeedMultiplier={settings.ghostSpeedMultiplier}
+          closeMatches={closeMatches}
+        />
       </div>
 
       <div className="absolute bottom-8 right-6">
