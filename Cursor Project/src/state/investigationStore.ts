@@ -3,6 +3,7 @@ import { GHOSTS } from "../data/ghosts";
 import {
   buildGhostDisplayItems,
   filterPossibleGhostIds,
+  unanimousSmudgeDurationSeconds,
 } from "../domain/ghosts";
 import {
   createInitialEvidenceMap,
@@ -37,9 +38,12 @@ import {
 import type { InvestigationSnapshot, OverlayToast } from "../types/sync";
 import type { InvestigationTimer } from "../types/timer";
 import {
+  applyAccentToDocument,
+  clampHudScale,
   clampTickerSpeed,
   DEFAULT_OVERLAY_APPEARANCE,
   normalizeHexColor,
+  resolveOverlayAppearance as resolveAppearanceSettings,
   type OverlayAppearanceSettings,
 } from "../types/overlayAppearance";
 import { publishInvestigationSnapshot } from "../services/investigationSync";
@@ -107,6 +111,7 @@ type InvestigationExtras = Pick<
 function buildGhostView(
   evidence: EvidenceMap,
   eliminatedGhostIds: string[],
+  evidenceDifficulty: InvestigationSettings["evidenceDifficulty"],
 ): Pick<
   InvestigationView,
   "evidence" | "eliminatedGhostIds" | "evidenceEntries" | "ghosts" | "possibleGhostCount"
@@ -115,6 +120,7 @@ function buildGhostView(
     GHOSTS,
     evidence,
     eliminatedGhostIds,
+    { evidenceDifficulty },
   );
 
   return {
@@ -132,24 +138,41 @@ function buildInvestigationView(
   extras: InvestigationExtras,
 ): InvestigationView {
   return {
-    ...buildGhostView(evidence, eliminatedGhostIds),
+    ...buildGhostView(
+      evidence,
+      eliminatedGhostIds,
+      extras.settings.evidenceDifficulty,
+    ),
     ...extras,
+  };
+}
+
+/** When idle and all possible ghosts share a smudge window, adopt that duration. */
+function withAutoSmudgeDuration(view: InvestigationView): InvestigationView {
+  if (view.smudgeTimer.startedAtMs !== null) {
+    return view;
+  }
+  const unanimous = unanimousSmudgeDurationSeconds(view.ghosts);
+  if (unanimous === null || unanimous === view.smudgeTimer.durationSeconds) {
+    return view;
+  }
+  return {
+    ...view,
+    smudgeTimer: setTimerDuration(view.smudgeTimer, unanimous),
   };
 }
 
 function resolveOverlayAppearance(
   value: InvestigationSnapshot["overlayAppearance"] | undefined,
 ): OverlayAppearanceSettings {
-  if (!value) {
-    return { ...DEFAULT_OVERLAY_APPEARANCE };
-  }
+  return resolveAppearanceSettings(value);
+}
 
+function createEliminateToast(id: EvidenceId): OverlayToast {
   return {
-    ghostTextColor: normalizeHexColor(
-      value.ghostTextColor,
-      DEFAULT_OVERLAY_APPEARANCE.ghostTextColor,
-    ),
-    tickerSpeedPxPerSec: clampTickerSpeed(value.tickerSpeedPxPerSec),
+    id: `toast-elim-${id}-${Date.now()}`,
+    message: `✗ ${EVIDENCE_BY_ID[id].label} Ruled Out`,
+    createdAtMs: Date.now(),
   };
 }
 
@@ -339,16 +362,21 @@ export const useInvestigationStore = create<InvestigationStoreState>((set, get) 
 
   cycleEvidence: (id) => {
     const previous = get();
+    if (previous.settings.evidenceDifficulty === "apocalypse") {
+      return;
+    }
     const nextEvidence = cycleEvidenceEntry(previous.evidence, id);
     const toast = createEvidenceToast(id, nextEvidence[id].state);
     const toasts = trimToasts(
       toast ? [...previous.toasts, toast] : previous.toasts,
     );
 
-    const next = buildInvestigationView(nextEvidence, previous.eliminatedGhostIds, {
-      ...keepSessionExtras(previous),
-      toasts,
-    });
+    const next = withAutoSmudgeDuration(
+      buildInvestigationView(nextEvidence, previous.eliminatedGhostIds, {
+        ...keepSessionExtras(previous),
+        toasts,
+      }),
+    );
 
     set({ ...next, isSyncPublisher: previous.isSyncPublisher });
     publishIfNeeded(get());
@@ -356,6 +384,9 @@ export const useInvestigationStore = create<InvestigationStoreState>((set, get) 
 
   setEvidenceState: (id, nextState, voiceConfirmed = false) => {
     const previous = get();
+    if (previous.settings.evidenceDifficulty === "apocalypse") {
+      return;
+    }
     const nextEvidence = setEvidenceEntryState(
       previous.evidence,
       id,
@@ -367,10 +398,12 @@ export const useInvestigationStore = create<InvestigationStoreState>((set, get) 
       toast ? [...previous.toasts, toast] : previous.toasts,
     );
 
-    const next = buildInvestigationView(nextEvidence, previous.eliminatedGhostIds, {
-      ...keepSessionExtras(previous),
-      toasts,
-    });
+    const next = withAutoSmudgeDuration(
+      buildInvestigationView(nextEvidence, previous.eliminatedGhostIds, {
+        ...keepSessionExtras(previous),
+        toasts,
+      }),
+    );
 
     set({ ...next, isSyncPublisher: previous.isSyncPublisher });
     publishIfNeeded(get());
@@ -378,7 +411,9 @@ export const useInvestigationStore = create<InvestigationStoreState>((set, get) 
 
   setOverlayAppearance: (patch) => {
     const previous = get();
-    const nextAppearance: OverlayAppearanceSettings = {
+    const nextAppearance = resolveAppearanceSettings({
+      ...previous.overlayAppearance,
+      ...patch,
       ghostTextColor: normalizeHexColor(
         patch.ghostTextColor ?? previous.overlayAppearance.ghostTextColor,
       ),
@@ -386,16 +421,22 @@ export const useInvestigationStore = create<InvestigationStoreState>((set, get) 
         patch.tickerSpeedPxPerSec ??
           previous.overlayAppearance.tickerSpeedPxPerSec,
       ),
-    };
+      hudScale: clampHudScale(
+        patch.hudScale ?? previous.overlayAppearance.hudScale,
+      ),
+    });
 
     set({
       overlayAppearance: nextAppearance,
       isSyncPublisher: previous.isSyncPublisher,
     });
+    applyAccentToDocument(nextAppearance.ghostTextColor);
     publishIfNeeded(get());
-    // Only the Main publisher owns disk persistence for appearance/settings.
     if (previous.isSyncPublisher) {
       usePreferencesStore.getState().setOverlayAppearancePrefs(nextAppearance);
+      usePreferencesStore.getState().setOverlayLayout({
+        scale: nextAppearance.hudScale,
+      });
     }
   },
 
@@ -406,12 +447,19 @@ export const useInvestigationStore = create<InvestigationStoreState>((set, get) 
       ...patch,
     });
 
-    set({
-      settings,
-      currentGhostSpeedMps: deriveSpeedMps(
-        previous.timingTimestampsMs,
+    const next = withAutoSmudgeDuration(
+      buildInvestigationView(previous.evidence, previous.eliminatedGhostIds, {
+        ...keepSessionExtras(previous),
         settings,
-      ),
+        currentGhostSpeedMps: deriveSpeedMps(
+          previous.timingTimestampsMs,
+          settings,
+        ),
+      }),
+    );
+
+    set({
+      ...next,
       isSyncPublisher: previous.isSyncPublisher,
     });
     publishIfNeeded(get());
@@ -425,6 +473,9 @@ export const useInvestigationStore = create<InvestigationStoreState>((set, get) 
 
     switch (action.type) {
       case "confirm_evidence": {
+        if (previous.settings.evidenceDifficulty === "apocalypse") {
+          break;
+        }
         const nextEvidence = setEvidenceEntryState(
           previous.evidence,
           action.evidenceId,
@@ -435,10 +486,36 @@ export const useInvestigationStore = create<InvestigationStoreState>((set, get) 
         const toasts = trimToasts(
           toast ? [...previous.toasts, toast] : previous.toasts,
         );
-        const next = buildInvestigationView(
-          nextEvidence,
-          previous.eliminatedGhostIds,
-          { ...keepSessionExtras(previous), toasts },
+        const next = withAutoSmudgeDuration(
+          buildInvestigationView(
+            nextEvidence,
+            previous.eliminatedGhostIds,
+            { ...keepSessionExtras(previous), toasts },
+          ),
+        );
+        set({ ...next, isSyncPublisher: previous.isSyncPublisher });
+        break;
+      }
+      case "eliminate_evidence": {
+        if (previous.settings.evidenceDifficulty === "apocalypse") {
+          break;
+        }
+        const nextEvidence = setEvidenceEntryState(
+          previous.evidence,
+          action.evidenceId,
+          "eliminated",
+          false,
+        );
+        const toasts = trimToasts([
+          ...previous.toasts,
+          createEliminateToast(action.evidenceId),
+        ]);
+        const next = withAutoSmudgeDuration(
+          buildInvestigationView(
+            nextEvidence,
+            previous.eliminatedGhostIds,
+            { ...keepSessionExtras(previous), toasts },
+          ),
         );
         set({ ...next, isSyncPublisher: previous.isSyncPublisher });
         break;
@@ -477,6 +554,23 @@ export const useInvestigationStore = create<InvestigationStoreState>((set, get) 
         });
         break;
       }
+      case "reset_hunt_cooldown": {
+        const toast: OverlayToast = {
+          id: `toast-hunt-reset-${Date.now()}`,
+          message: "✓ Hunt Cooldown Reset",
+          createdAtMs: Date.now(),
+        };
+        set({
+          huntTimer: resetTimer(previous.huntTimer),
+          toasts: trimToasts([...previous.toasts, toast]),
+          isSyncPublisher: previous.isSyncPublisher,
+        });
+        break;
+      }
+      case "reset_investigation": {
+        get().resetInvestigation();
+        return;
+      }
     }
 
     publishIfNeeded(get());
@@ -489,10 +583,12 @@ export const useInvestigationStore = create<InvestigationStoreState>((set, get) 
       ? previous.eliminatedGhostIds.filter((id) => id !== ghostId)
       : [...previous.eliminatedGhostIds, ghostId];
 
-    const next = buildInvestigationView(
-      previous.evidence,
-      eliminatedGhostIds,
-      keepSessionExtras(previous),
+    const next = withAutoSmudgeDuration(
+      buildInvestigationView(
+        previous.evidence,
+        eliminatedGhostIds,
+        keepSessionExtras(previous),
+      ),
     );
     set({ ...next, isSyncPublisher: previous.isSyncPublisher });
     publishIfNeeded(get());
@@ -682,6 +778,11 @@ export const useInvestigationStore = create<InvestigationStoreState>((set, get) 
 
   resetInvestigation: () => {
     const previous = get();
+    const toast: OverlayToast = {
+      id: `toast-reset-${Date.now()}`,
+      message: "✓ Investigation Reset",
+      createdAtMs: Date.now(),
+    };
     const next = buildInvestigationView(createInitialEvidenceMap(), [], {
       timingMode: false,
       timingTimestampsMs: [],
@@ -689,7 +790,7 @@ export const useInvestigationStore = create<InvestigationStoreState>((set, get) 
       smudgeTimer: createIdleTimer(previous.smudgeTimer.durationSeconds),
       huntTimer: createIdleTimer(previous.huntTimer.durationSeconds),
       currentGhostSpeedMps: null,
-      toasts: [],
+      toasts: [toast],
       overlayAppearance: previous.overlayAppearance,
       settings: previous.settings,
     });

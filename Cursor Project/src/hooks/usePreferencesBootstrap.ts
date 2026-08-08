@@ -9,8 +9,10 @@ import {
 import { useInvestigationStore } from "../state/investigationStore";
 import {
   applyThemeToDocument,
+  flushPreferencesSave,
   usePreferencesStore,
 } from "../state/preferencesStore";
+import { applyAccentToDocument } from "../types/overlayAppearance";
 
 /**
  * Load Tauri Store preferences once per window.
@@ -23,6 +25,19 @@ export function usePreferencesBootstrap(role: "main" | "overlay"): void {
     let saveGeometryTimer: ReturnType<typeof setTimeout> | null = null;
     const unlisteners: Array<() => void> = [];
 
+    async function persistGeometryNow(): Promise<void> {
+      const geometry = await readCurrentWindowGeometry();
+      if (!geometry || cancelled) {
+        return;
+      }
+      if (role === "main") {
+        usePreferencesStore.getState().setMainWindowGeometry(geometry);
+      } else {
+        usePreferencesStore.getState().setOverlayLayout({ geometry });
+      }
+      await flushPreferencesSave();
+    }
+
     async function bootstrap(): Promise<void> {
       const preferences = await loadPersistedPreferences();
       if (cancelled) {
@@ -31,10 +46,16 @@ export function usePreferencesBootstrap(role: "main" | "overlay"): void {
 
       usePreferencesStore.getState().hydrate(preferences);
       applyThemeToDocument(preferences.theme);
+      applyAccentToDocument(preferences.overlayAppearance.ghostTextColor);
 
       if (role === "main") {
         const investigation = useInvestigationStore.getState();
-        investigation.setOverlayAppearance(preferences.overlayAppearance);
+        investigation.setOverlayAppearance({
+          ...preferences.overlayAppearance,
+          hudScale:
+            preferences.overlayAppearance.hudScale ?? preferences.overlay.scale,
+          layoutEditMode: false,
+        });
         investigation.setInvestigationSettings(preferences.investigationSettings);
         investigation.setSmudgeDurationSeconds(preferences.smudgeDurationSeconds);
         investigation.setHuntCooldownDurationSeconds(
@@ -74,6 +95,18 @@ export function usePreferencesBootstrap(role: "main" | "overlay"): void {
 
         unlisteners.push(await window.onMoved(queueGeometrySave));
         unlisteners.push(await window.onResized(queueGeometrySave));
+        unlisteners.push(
+          await window.onCloseRequested(async (event) => {
+            event.preventDefault();
+            try {
+              await persistGeometryNow();
+            } catch (error: unknown) {
+              console.warn("Failed to flush geometry before close", error);
+            } finally {
+              await window.destroy();
+            }
+          }),
+        );
       } catch (error: unknown) {
         console.warn("Window geometry persistence unavailable", error);
       }

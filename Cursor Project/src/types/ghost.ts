@@ -2,7 +2,15 @@ import type { EvidenceId } from "./evidence";
 
 export interface SpeedProfile {
   summary: string;
+  /**
+   * Single reference speed when the ghost has one typical value.
+   * For ranged ghosts this is often the high end (or most distinctive value).
+   */
   referenceSpeedMps: number | null;
+  /** Inclusive lower bound for variable-speed matching (optional). */
+  minSpeedMps?: number | null;
+  /** Inclusive upper bound for variable-speed matching (optional). */
+  maxSpeedMps?: number | null;
 }
 
 /**
@@ -14,7 +22,8 @@ export interface GhostSpecialRules {
   alwaysPresentsEvidence?: EvidenceId[];
   /**
    * Evidence that cannot be the hidden one on Nightmare/Insanity (forced evidence).
-   * Standard 3-evidence filtering still uses effective evidence via alwaysPresentsEvidence.
+   * Used by difficulty-aware filtering; standard 3-evidence mode only needs
+   * effective evidence via alwaysPresentsEvidence (e.g. Mimic Orbs).
    */
   forcedEvidence?: EvidenceId[];
 }

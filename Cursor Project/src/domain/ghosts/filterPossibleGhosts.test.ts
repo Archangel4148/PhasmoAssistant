@@ -159,6 +159,100 @@ describe("isGhostPossible", () => {
   });
 });
 
+describe("evidence difficulty filtering", () => {
+  const deogen = GHOSTS_BY_ID.deogen;
+  const hantu = GHOSTS_BY_ID.hantu;
+  const mimic = GHOSTS_BY_ID.mimic;
+  const spirit = GHOSTS_BY_ID.spirit;
+
+  it("Nightmare: eliminates forced-evidence ghosts when 2 confirmed omit forced", () => {
+    let evidence = createInitialEvidenceMap();
+    evidence = setEvidenceEntryState(evidence, "ghostOrbs", "confirmed");
+    evidence = setEvidenceEntryState(evidence, "fingerprints", "confirmed");
+
+    expect(
+      isGhostPossible(hantu, evidence, [], { evidenceDifficulty: "nightmare" }),
+    ).toBe(false);
+    expect(
+      isGhostPossible(mimic, evidence, [], { evidenceDifficulty: "nightmare" }),
+    ).toBe(true);
+  });
+
+  it("Nightmare: keeps forced-evidence ghosts when forced is among confirmed", () => {
+    let evidence = createInitialEvidenceMap();
+    evidence = setEvidenceEntryState(evidence, "freezing", "confirmed");
+    evidence = setEvidenceEntryState(evidence, "fingerprints", "confirmed");
+
+    expect(
+      isGhostPossible(hantu, evidence, [], { evidenceDifficulty: "nightmare" }),
+    ).toBe(true);
+  });
+
+  it("Insanity: forced ghosts die when a non-forced journal evidence is confirmed", () => {
+    const evidence = setEvidenceEntryState(
+      createInitialEvidenceMap(),
+      "ghostWriting",
+      "confirmed",
+    );
+
+    expect(
+      isGhostPossible(deogen, evidence, [], { evidenceDifficulty: "insanity" }),
+    ).toBe(false);
+    expect(
+      isGhostPossible(spirit, evidence, [], { evidenceDifficulty: "insanity" }),
+    ).toBe(true);
+  });
+
+  it("Insanity: Mimic Orbs do not violate filtering and remain always-presented", () => {
+    const orbsOnly = setEvidenceEntryState(
+      createInitialEvidenceMap(),
+      "ghostOrbs",
+      "confirmed",
+    );
+    expect(
+      isGhostPossible(mimic, orbsOnly, [], { evidenceDifficulty: "insanity" }),
+    ).toBe(true);
+    expect(
+      isGhostPossible(spirit, orbsOnly, [], { evidenceDifficulty: "insanity" }),
+    ).toBe(false);
+
+    let mimicPath = createInitialEvidenceMap();
+    mimicPath = setEvidenceEntryState(mimicPath, "ghostOrbs", "confirmed");
+    mimicPath = setEvidenceEntryState(mimicPath, "fingerprints", "confirmed");
+    expect(
+      isGhostPossible(mimic, mimicPath, [], { evidenceDifficulty: "insanity" }),
+    ).toBe(true);
+  });
+
+  it("Insanity: Deogen stays when its forced Spirit Box is confirmed", () => {
+    const evidence = setEvidenceEntryState(
+      createInitialEvidenceMap(),
+      "spiritBox",
+      "confirmed",
+    );
+    expect(
+      isGhostPossible(deogen, evidence, [], { evidenceDifficulty: "insanity" }),
+    ).toBe(true);
+  });
+
+  it("Apocalypse: ignores confirmed/eliminated evidence", () => {
+    let evidence = createInitialEvidenceMap();
+    evidence = setEvidenceEntryState(evidence, "emf5", "confirmed");
+    evidence = setEvidenceEntryState(evidence, "ghostWriting", "eliminated");
+
+    expect(
+      isGhostPossible(spirit, evidence, [], {
+        evidenceDifficulty: "apocalypse",
+      }),
+    ).toBe(true);
+    expect(
+      isGhostPossible(spirit, evidence, ["spirit"], {
+        evidenceDifficulty: "apocalypse",
+      }),
+    ).toBe(false);
+  });
+});
+
 describe("filterPossibleGhostIds", () => {
   it("includes all ghosts when evidence is unknown", () => {
     const possible = filterPossibleGhostIds(GHOSTS, createInitialEvidenceMap());

@@ -112,7 +112,33 @@ describe("compareSpeedToPossibleGhosts", () => {
     const matches = compareSpeedToPossibleGhosts(1.7, ghosts);
     expect(matches.map((entry) => entry.ghostId)).toEqual(["spirit", "revenant"]);
     expect(matches[0]?.isClose).toBe(true);
+    // Point ghost at 3.0 is far from 1.7
     expect(matches[1]?.isClose).toBe(false);
+  });
+
+  it("treats measured speeds inside a variable range as close", () => {
+    const ranged: GhostDisplayItem[] = [
+      {
+        id: "revenant",
+        name: "Revenant",
+        evidence: ["ghostOrbs", "ghostWriting", "freezing"],
+        speedProfile: {
+          summary: "1.0–3.0 m/s",
+          referenceSpeedMps: 3.0,
+          minSpeedMps: 1.0,
+          maxSpeedMps: 3.0,
+        },
+        smudgeDurationSeconds: 90,
+        notes: [],
+        isPossible: true,
+        isManuallyEliminated: false,
+      },
+    ];
+    const matches = compareSpeedToPossibleGhosts(1.7, ranged);
+    expect(matches).toHaveLength(1);
+    expect(matches[0]?.isClose).toBe(true);
+    expect(matches[0]?.usedRange).toBe(true);
+    expect(matches[0]?.deltaMps).toBe(0);
   });
 
   it("returns empty when speed is null", () => {

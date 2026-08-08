@@ -304,12 +304,29 @@ Manual verification:
 - [x] Animations remain subtle and performant
 - [x] No major usability issues remain in polished surfaces
 
+---
+
+## Post-phase UX backlog checks
+
+Manual verification:
+
+- Settings → **Edit overlay layout**: overlay unmaximizes, drag bar moves it, edge grips resize; Done/Close restores click-through
+- Overlay HUD scale slider updates Overlay live
+- HUD element toggles hide ghosts/timers/timing/toasts on Overlay
+- Maximize Main on a secondary monitor → quit → relaunch restores maximized on that monitor
+- Voice: `trigger not emf five` eliminates; `trigger reset hunt` clears hunt cooldown
+- Microphone **None** stops voice; selecting a mic restarts it
+- Accent color updates Main header/panel accents + overlay ghost text
+- Diagnostics → View accepted voice phrases lists catalog entries
+- Packaged app uses the custom ghost orb icons (`src-tauri/icons`)
+
 ## Automated tests
 
 Domain logic tests live alongside implementation:
 
 - `src/domain/evidence/evidenceRules.test.ts`
-- `src/domain/ghosts/filterPossibleGhosts.test.ts`
+- `src/domain/ghosts/filterPossibleGhosts.test.ts` (includes evidence difficulty + Mimic Orbs)
+- `src/domain/ghosts/unanimousSmudge.test.ts`
 - `src/domain/timers/timerState.test.ts`
 - `src/domain/speed/calculateSpeed.test.ts`
 - `src/domain/voice/normalizeCommand.test.ts`

@@ -9,5 +9,6 @@ export {
 export {
   SPEED_MATCH_TOLERANCE_MPS,
   compareSpeedToPossibleGhosts,
+  resolveSpeedMatchRange,
   type GhostSpeedMatch,
 } from "./compareSpeed";

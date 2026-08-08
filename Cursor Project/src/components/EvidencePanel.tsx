@@ -5,6 +5,8 @@ import type { EvidenceEntry, EvidenceId, EvidenceState } from "../types/evidence
 interface EvidencePanelProps {
   evidence: EvidenceEntry[];
   onEvidenceCycle: (id: EvidenceId) => void;
+  /** When true (Apocalypse), evidence is ignored for filtering and cycling is disabled. */
+  evidenceDisabled?: boolean;
 }
 
 const STATE_STYLES: Record<
@@ -46,9 +48,11 @@ function nextStateLabel(state: EvidenceState): string {
 function EvidenceTile({
   entry,
   onCycle,
+  disabled,
 }: {
   entry: EvidenceEntry;
   onCycle: (id: EvidenceId) => void;
+  disabled: boolean;
 }) {
   const definition = EVIDENCE_BY_ID[entry.id];
   const styles = STATE_STYLES[entry.state];
@@ -56,11 +60,22 @@ function EvidenceTile({
   return (
     <motion.button
       type="button"
-      whileTap={{ scale: 0.985 }}
+      whileTap={disabled ? undefined : { scale: 0.985 }}
       transition={{ duration: 0.15 }}
-      onClick={() => onCycle(entry.id)}
-      aria-label={`${definition.label}: ${styles.label}. Activate to mark ${nextStateLabel(entry.state)}.`}
-      className={`focus-ring relative flex w-full cursor-pointer flex-col gap-2 rounded-lg border p-3 text-left transition-colors ${styles.container}`}
+      disabled={disabled}
+      onClick={() => {
+        if (!disabled) {
+          onCycle(entry.id);
+        }
+      }}
+      aria-label={
+        disabled
+          ? `${definition.label}: ignored on Apocalypse`
+          : `${definition.label}: ${styles.label}. Activate to mark ${nextStateLabel(entry.state)}.`
+      }
+      className={`focus-ring relative flex w-full flex-col gap-2 rounded-lg border p-3 text-left transition-colors ${styles.container} ${
+        disabled ? "cursor-not-allowed opacity-45" : "cursor-pointer"
+      }`}
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
@@ -84,10 +99,7 @@ function EvidenceTile({
       </div>
 
       {entry.voiceConfirmed && (
-        <p
-          className="text-[11px]"
-          style={{ color: "var(--success)" }}
-        >
+        <p className="text-[11px]" style={{ color: "var(--success)" }}>
           ✓ Voice confirmed
         </p>
       )}
@@ -95,7 +107,11 @@ function EvidenceTile({
   );
 }
 
-export function EvidencePanel({ evidence, onEvidenceCycle }: EvidencePanelProps) {
+export function EvidencePanel({
+  evidence,
+  onEvidenceCycle,
+  evidenceDisabled = false,
+}: EvidencePanelProps) {
   const confirmedCount = evidence.filter((e) => e.state === "confirmed").length;
   const eliminatedCount = evidence.filter(
     (e) => e.state === "eliminated",
@@ -106,14 +122,20 @@ export function EvidencePanel({ evidence, onEvidenceCycle }: EvidencePanelProps)
       <div className="mb-4">
         <h2 className="panel-title">Evidence</h2>
         <p className="panel-subtitle">
-          Click to cycle · {confirmedCount} confirmed · {eliminatedCount}{" "}
-          eliminated
+          {evidenceDisabled
+            ? "Apocalypse — evidence ignored; use Exclude / behavior tests"
+            : `Click to cycle · ${confirmedCount} confirmed · ${eliminatedCount} eliminated`}
         </p>
       </div>
 
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         {evidence.map((entry) => (
-          <EvidenceTile key={entry.id} entry={entry} onCycle={onEvidenceCycle} />
+          <EvidenceTile
+            key={entry.id}
+            entry={entry}
+            onCycle={onEvidenceCycle}
+            disabled={evidenceDisabled}
+          />
         ))}
       </div>
     </section>

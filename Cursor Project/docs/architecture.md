@@ -247,7 +247,7 @@ vosk_listener.py → JSON utterance → Rust event → resolveVoiceCommand → a
 
 ### Known limitations (Phase 6)
 
-- Microphone device picker persists selection; sidecar still uses system default input.
+- Microphone device picker persists selection and routes the label into the voice sidecar (`--device-name`).
 - PyInstaller packaging still deferred.
 - Small English Vosk model must be downloaded manually into `sidecar/models/`.
 
@@ -349,13 +349,13 @@ Tauri Store persistence for user preferences and window layouts. Active investig
 
 | Item | Notes |
 |------|--------|
-| Main window geometry | Saved on move/resize; restored at launch |
-| Overlay geometry + HUD scale | Geometry optional; scale 75–150% via CSS transform |
-| Overlay appearance | Color + ticker speed |
-| Investigation settings | Ghost speed multiplier, timing hide delay, timer defaults |
+| Main window geometry | Saved on move/resize/close (includes `maximized`); restored at launch with monitor-aware maximize |
+| Overlay geometry + HUD scale | Geometry optional; HUD scale 75–150% via CSS (`hudScale`); Edit Layout mode for move/resize |
+| Overlay appearance | Accent color, ticker speed, HUD element visibility toggles |
+| Investigation settings | Ghost speed multiplier, evidence difficulty, timing hide delay, timer defaults |
 | Hotkeys | Toggle-timing accelerator (configurable) |
-| Theme | `dark` / `light` |
-| Microphone | Device id/label remembered (routing to sidecar still default for now) |
+| Theme | `dark` / `light` (accent overlays from Settings color) |
+| Microphone | `enabled` + device id/label; `enabled: false` stops sidecar ("None" in Settings) |
 
 ### Explicitly not persisted
 
@@ -363,9 +363,13 @@ Evidence, eliminated ghosts, running timers, timing timestamps/results, toasts.
 
 ### Known limitations (Phase 10)
 
-- Selected microphone is stored but the voice sidecar still opens the system default input.
+- Microphone label is persisted and routed into the voice sidecar (see Post-phase backlog resolution).
 - Light theme panel remapping was completed in Phase 12 (earlier shell-only limitation resolved).
 - Overlay “Reset layout” maximizes the overlay window and clears saved geometry.
+- Overlay stays click-through during play. **Edit overlay layout** (Settings → Windows) temporarily unmaximizes, enables focus/resize handles, then restores click-through on Done/Close.
+- Accent color drives CSS `--accent*` tokens on Main (header/panels/buttons) and overlay ghost text.
+- App icons generated from `assets/app-icon-master.png` via `npx tauri icon`.
+- Packaged PyInstaller voice binary remains the main gap for true one-click installs (Python + Vosk model still manual in dev).
 
 ---
 
@@ -403,9 +407,66 @@ Functional quality: idle CPU, sync/persist races, hydrate hardening, lint/type/t
 
 ### Known limitations (Phase 11)
 
-- Microphone routing to a selected device is still not wired into the sidecar
-- Nightmare/Insanity forced-evidence filtering remains incomplete
-- Variable-speed ghosts still match on a single `referenceSpeedMps` when present
+- ~~Nightmare/Insanity forced-evidence filtering remains incomplete~~ → addressed (Evidence Difficulty setting)
+- ~~Variable-speed ghosts still match on a single `referenceSpeedMps` when present~~ → addressed (min/max ranges)
+- ~~Microphone routing to a selected device is still not wired into the sidecar~~ → addressed
+
+---
+
+## Post-phase backlog resolution
+
+### Microphone routing (complete)
+
+- Preferences mic **label** passed to `restart_voice_sidecar`
+- Python `--device-name` resolves via sounddevice name match
+- Applied after prefs hydrate and whenever Settings changes the mic
+
+### Variable-speed matching (complete)
+
+- `SpeedProfile.minSpeedMps` / `maxSpeedMps` on ranged ghosts
+- `compareSpeedToPossibleGhosts` treats in-range measured speeds as close (with edge tolerance)
+
+### Auto-smudge duration (complete)
+
+- When the smudge timer is idle and all possible ghosts share one `smudgeDurationSeconds`, the session preset updates (does not rewrite persisted timer defaults)
+
+### Settings focus trap (complete)
+
+- Tab cycles within the dialog; Escape / backdrop still close; initial focus on Close
+
+### Still open
+
+- Packaged PyInstaller voice binary (needed for one-click distributable builds — see below)
+- Full Rust-owned mutation path for evidence (Main still mutates locally then publishes)
+
+### Distributable packaging & PyInstaller (planned)
+
+Today the voice sidecar is a **Python script** Rust launches with `py`/`python` on PATH. That works in development, but for a clean installer you want:
+
+1. **No separate Python install** for end users
+2. **Vosk model + deps** already inside the app bundle
+3. **One installer** (e.g. Tauri/NSIS or MSI) that drops Main + Overlay + sidecar + model
+
+**PyInstaller** (or similar: Nuitka, cx_Freeze) freezes `vosk_listener.py` + `sounddevice` + `vosk` into a single Windows `.exe` (plus accompanying data). Tauri’s build would then:
+
+- Bundle that exe under `sidecar/` (or `resources/`)
+- Prefer launching the packaged binary instead of `python vosk_listener.py`
+- Ship the Vosk model next to it (or inside the frozen bundle)
+
+Until that lands, users must install Python, `pip install -r sidecar/requirements.txt`, and download the Vosk model — fine for you as a developer, not for a public release.
+
+### Evidence difficulty modes (complete)
+
+Settings → Evidence Difficulty (`evidenceDifficulty` in investigation settings, persisted):
+
+| Mode | Journal evidence | Forced-evidence rule |
+|------|------------------|----------------------|
+| Amateur–Professional | 3 | None beyond base confirm/eliminate |
+| Nightmare | 2 | Once ≥2 confirmed, forced evidence must be among them |
+| Insanity | 1 | Forced ghosts may only show forced journal evidence |
+| Apocalypse | 0 | Evidence ignored; Exclude / behavior only |
+
+Mimic fake Ghost Orbs remain `alwaysPresentsEvidence` on every mode (effective evidence + Insanity extras do not count as a non-forced journal piece). Apocalypse disables evidence cycling (UI + store + voice confirm).
 
 ---
 
@@ -434,5 +495,5 @@ User-facing visual/UX refinement only. No domain, sync, or persistence behavior 
 ### Known limitations (Phase 12)
 
 - Overlay HUD still uses its own glass styling (intentionally quieter than Main)
-- Full focus-trap inside Settings is not implemented (Escape + backdrop close are)
-- Microphone selection still does not route into the sidecar
+- ~~Full focus-trap inside Settings is not implemented~~ → addressed
+- ~~Microphone selection still does not route into the sidecar~~ → addressed

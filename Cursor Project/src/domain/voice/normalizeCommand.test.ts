@@ -56,6 +56,42 @@ describe("resolveVoiceCommand", () => {
     });
   });
 
+  it("eliminates evidence with not/eliminate prefixes", () => {
+    expect(resolveUtterance("trigger not emf five")).toEqual({
+      type: "eliminate_evidence",
+      evidenceId: "emf5",
+    });
+    expect(resolveUtterance("eliminate spirit box")).toEqual({
+      type: "eliminate_evidence",
+      evidenceId: "spiritBox",
+    });
+    expect(resolveVoiceCommand("eliminate_evidence", "dots")).toEqual({
+      type: "eliminate_evidence",
+      evidenceId: "dots",
+    });
+  });
+
+  it("resets hunt cooldown without toggling", () => {
+    expect(resolveUtterance("reset hunt")).toEqual({
+      type: "reset_hunt_cooldown",
+    });
+    expect(resolveVoiceCommand("reset_hunt")).toEqual({
+      type: "reset_hunt_cooldown",
+    });
+  });
+
+  it("resets the full investigation from clear/reset evidence phrases", () => {
+    expect(resolveUtterance("trigger clear evidence")).toEqual({
+      type: "reset_investigation",
+    });
+    expect(resolveUtterance("reset evidence")).toEqual({
+      type: "reset_investigation",
+    });
+    expect(resolveVoiceCommand("reset_evidence")).toEqual({
+      type: "reset_investigation",
+    });
+  });
+
   it("ignores unrelated speech", () => {
     expect(resolveUtterance("where is the ghost")).toBeNull();
     expect(resolveVoiceCommand("utterance", "hello there")).toBeNull();

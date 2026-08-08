@@ -8,6 +8,7 @@ interface DiagnosticsPanelProps {
   usingMock?: boolean;
   restartPending?: boolean;
   onRestartSidecar?: () => void;
+  onShowVoicePhrases?: () => void;
 }
 
 const SIDECAR_LABEL: Record<SidecarStatus, string> = {
@@ -56,6 +57,7 @@ export function DiagnosticsPanel({
   usingMock = false,
   restartPending = false,
   onRestartSidecar,
+  onShowVoicePhrases,
 }: DiagnosticsPanelProps) {
   const { sidecarStatus, microphoneLabel, microphoneAvailable, voiceStatus } =
     diagnostics;
@@ -82,6 +84,16 @@ export function DiagnosticsPanel({
           </button>
         )}
       </div>
+
+      {onShowVoicePhrases ? (
+        <button
+          type="button"
+          onClick={onShowVoicePhrases}
+          className="btn-ghost focus-ring mb-3 w-full px-2.5 py-1.5 text-left text-[11px] font-medium"
+        >
+          View accepted voice phrases
+        </button>
+      ) : null}
 
       <div className="inset-block divide-y divide-[var(--panel-border)] px-3">
         <DiagnosticRow

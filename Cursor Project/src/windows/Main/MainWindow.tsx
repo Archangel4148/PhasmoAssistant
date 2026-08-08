@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { DiagnosticsPanel } from "../../components/DiagnosticsPanel";
 import { ErrorBoundary } from "../../components/ErrorBoundary";
@@ -7,11 +7,12 @@ import { GhostPanel } from "../../components/GhostPanel";
 import { Header } from "../../components/Header";
 import { InvestigationToolsPanel } from "../../components/InvestigationToolsPanel";
 import { SettingsDialog } from "../../components/SettingsDialog";
+import { VoicePhrasesPanel } from "../../components/VoicePhrasesPanel";
 import { useMainInvestigationSync } from "../../hooks/useInvestigationSync";
 import { usePreferencesBootstrap } from "../../hooks/usePreferencesBootstrap";
 import { useTimingHotkeys } from "../../hooks/useTimingHotkeys";
 import { useVoiceSidecarBridge } from "../../hooks/useVoiceSidecarBridge";
-import { restartVoiceSidecar } from "../../services/sidecarApi";
+import { restartVoiceSidecar, stopVoiceSidecar } from "../../services/sidecarApi";
 import { useInvestigationStore } from "../../state/investigationStore";
 import { usePreferencesStore } from "../../state/preferencesStore";
 import { useVoiceDiagnosticsStore } from "../../state/voiceDiagnosticsStore";
@@ -24,6 +25,7 @@ export function MainWindow() {
   useVoiceSidecarBridge();
 
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [voicePhrasesOpen, setVoicePhrasesOpen] = useState(false);
   const [restartPending, setRestartPending] = useState(false);
 
   const evidenceEntries = useInvestigationStore((state) => state.evidenceEntries);
@@ -31,12 +33,20 @@ export function MainWindow() {
   const possibleGhostCount = useInvestigationStore(
     (state) => state.possibleGhostCount,
   );
+  const evidenceDifficulty = useInvestigationStore(
+    (state) => state.settings.evidenceDifficulty,
+  );
   const cycleEvidence = useInvestigationStore((state) => state.cycleEvidence);
+  const resetInvestigation = useInvestigationStore(
+    (state) => state.resetInvestigation,
+  );
   const toggleGhostEliminated = useInvestigationStore(
     (state) => state.toggleGhostEliminated,
   );
 
   const microphone = usePreferencesStore((state) => state.microphone);
+  const prefsHydrated = usePreferencesStore((state) => state.hydrated);
+  const appliedPreferredMic = useRef(false);
 
   const voiceStatus = useVoiceDiagnosticsStore((state) => state.voiceStatus);
   const sidecarStatus = useVoiceDiagnosticsStore((state) => state.sidecarStatus);
@@ -52,12 +62,46 @@ export function MainWindow() {
     (state) => state.applySidecarError,
   );
 
+  // After prefs hydrate, apply remembered mic / voice enabled state once.
+  useEffect(() => {
+    if (!prefsHydrated || appliedPreferredMic.current) {
+      return;
+    }
+    appliedPreferredMic.current = true;
+
+    if (!microphone.enabled) {
+      void stopVoiceSidecar()
+        .then((status) => {
+          applyRuntimeStatus(status);
+        })
+        .catch((error: unknown) => {
+          console.warn("Failed to stop voice sidecar", error);
+        });
+      return;
+    }
+
+    if (!microphone.label) {
+      return;
+    }
+
+    void restartVoiceSidecar(microphone.label)
+      .then((status) => {
+        applyRuntimeStatus(status);
+      })
+      .catch((error: unknown) => {
+        console.warn("Failed to apply preferred microphone to sidecar", error);
+      });
+  }, [prefsHydrated, microphone.enabled, microphone.label, applyRuntimeStatus]);
+
   const diagnostics: DiagnosticsSnapshot = {
     sidecarStatus,
-    microphoneLabel: usingMock
-      ? "Mock listener (no mic)"
-      : (microphone.label ?? "System default input"),
-    microphoneAvailable: !usingMock && voiceStatus === "listening",
+    microphoneLabel: !microphone.enabled
+      ? "Voice disabled"
+      : usingMock
+        ? "Mock listener (no mic)"
+        : (microphone.label ?? "System default input"),
+    microphoneAvailable:
+      microphone.enabled && !usingMock && voiceStatus === "listening",
     voiceStatus,
     recentVoiceEvents,
     lastError,
@@ -66,7 +110,12 @@ export function MainWindow() {
   async function handleRestartSidecar(): Promise<void> {
     setRestartPending(true);
     try {
-      const status = await restartVoiceSidecar();
+      if (!microphone.enabled) {
+        const status = await stopVoiceSidecar();
+        applyRuntimeStatus(status);
+        return;
+      }
+      const status = await restartVoiceSidecar(microphone.label);
       applyRuntimeStatus(status);
     } catch (error: unknown) {
       applySidecarError({
@@ -90,6 +139,7 @@ export function MainWindow() {
         voiceStatus={voiceStatus}
         possibleGhostCount={possibleGhostCount}
         onOpenSettings={() => setSettingsOpen(true)}
+        onResetInvestigation={resetInvestigation}
       />
 
       <motion.main
@@ -104,6 +154,7 @@ export function MainWindow() {
               <EvidencePanel
                 evidence={evidenceEntries}
                 onEvidenceCycle={cycleEvidence}
+                evidenceDisabled={evidenceDifficulty === "apocalypse"}
               />
             </ErrorBoundary>
             <ErrorBoundary fallbackTitle="Tools panel error">
@@ -130,6 +181,7 @@ export function MainWindow() {
                 onRestartSidecar={() => {
                   void handleRestartSidecar();
                 }}
+                onShowVoicePhrases={() => setVoicePhrasesOpen(true)}
               />
             </ErrorBoundary>
           </div>
@@ -139,6 +191,10 @@ export function MainWindow() {
       <SettingsDialog
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
+      />
+      <VoicePhrasesPanel
+        open={voicePhrasesOpen}
+        onClose={() => setVoicePhrasesOpen(false)}
       />
     </div>
   );

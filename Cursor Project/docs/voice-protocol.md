@@ -51,10 +51,17 @@ Ignored without wake word.
 | Input | Action |
 |-------|--------|
 | evidence phrases (`emf five`, `spirit box`, …) | confirm evidence (voiceConfirmed) |
-| `smudge` | start smudge timer (180s) |
+| negation (`not` / `eliminate` / `no` / `clear` / `rule out` / `ruled out`) + evidence phrase | eliminate that evidence |
+| `smudge` | start smudge timer |
 | `timer` / timing phrases | toggle timing mode |
-| `hunt cooldown` phrases | start hunt cooldown (25s) |
+| `hunt cooldown` phrases | start hunt cooldown |
+| `reset hunt` / `clear hunt` phrases | reset hunt cooldown timer |
+| `clear evidence` / `reset evidence` / `clear investigation` / `reset investigation` | reset full investigation state |
 | unrelated text | ignored |
+
+Elimination is the same evidence vocabulary with a negation prefix — not a separate phrase list. Accepted phrases are listed in-app under Diagnostics → **View accepted voice phrases** (`VOICE_COMMAND_CATALOG`).
+
+Microphone Settings includes **None (voice disabled)** (`microphone.enabled = false`), which stops the sidecar.
 
 ## Missing model / deps
 
@@ -70,8 +77,13 @@ pip install -r sidecar/requirements.txt
 | Command | Purpose |
 |---------|---------|
 | `get_sidecar_status` | Connection + voice status |
-| `restart_voice_sidecar` | Relaunch single sidecar process |
+| `restart_voice_sidecar` | Relaunch single sidecar process (`deviceName?` preferred mic label) |
 | `stop_voice_sidecar` | Stop sidecar |
+| `set_overlay_interactive` | Toggle overlay click-through / focusable / resizable for layout edit |
+
+### Microphone selection
+
+Browser `deviceId` is not usable by sounddevice. The UI persists the device **label**; Rust passes `--device-name` to `vosk_listener.py`, which substring-matches `sounddevice` input names. Empty/null → system default. Changing the mic in Settings (or Restart Sidecar) relaunches with the preferred label.
 
 ## Process selection
 

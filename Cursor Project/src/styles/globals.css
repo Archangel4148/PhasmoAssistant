@@ -63,7 +63,18 @@ html[data-theme="light"] {
 body {
   margin: 0;
   min-height: 100vh;
-  background: var(--app-bg);
+  background:
+    radial-gradient(
+      ellipse 90% 55% at 100% -15%,
+      color-mix(in srgb, var(--accent) 16%, transparent),
+      transparent 60%
+    ),
+    radial-gradient(
+      ellipse 70% 40% at -10% 110%,
+      color-mix(in srgb, var(--accent) 10%, transparent),
+      transparent 55%
+    ),
+    var(--app-bg);
   color: var(--text-primary);
   font-family: var(--font-sans);
   font-optical-sizing: auto;
@@ -89,7 +100,9 @@ html.overlay-window #root {
     border: 1px solid var(--panel-border);
     background: var(--panel-bg);
     padding: 1rem;
-    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.22);
+    box-shadow:
+      0 10px 28px rgba(0, 0, 0, 0.22),
+      inset 0 1px 0 color-mix(in srgb, var(--accent) 28%, transparent);
     backdrop-filter: blur(8px);
   }
 

@@ -20,14 +20,16 @@ pub fn run() {
             commands::get_sidecar_status,
             commands::restart_voice_sidecar,
             commands::stop_voice_sidecar,
+            commands::set_overlay_interactive,
         ])
         .setup(|app| {
             if let Some(overlay) = app.get_webview_window("overlay") {
-                // Click-through: game retains mouse/keyboard input.
+                // Click-through by default: game retains mouse/keyboard input.
                 overlay.set_ignore_cursor_events(true)?;
             }
 
             // Sidecar is optional — launch failure must not prevent the app from running.
+            // Main window may stop it again after prefs hydrate if voice is disabled.
             let handle = app.handle().clone();
             if let Some(manager) = handle.try_state::<SidecarManager>() {
                 if let Err(error) = manager.start(&handle) {
@@ -42,7 +44,7 @@ pub fn run() {
                     let _ = handle.emit(
                         "voice_status",
                         sidecar::VoiceStatusPayload {
-                            status: sidecar::VoiceStatus::Error,
+                            status: sidecar::VoiceStatus::Offline,
                         },
                     );
                 }

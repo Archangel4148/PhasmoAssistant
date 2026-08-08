@@ -61,7 +61,12 @@ export const GHOSTS: readonly Ghost[] = [
     id: "jinn",
     name: "Jinn",
     evidence: ["emf5", "fingerprints", "freezing"],
-    speedProfile: { summary: "2.5 m/s when breaker on", referenceSpeedMps: 2.5 },
+    speedProfile: {
+      summary: "2.5 m/s when breaker on",
+      referenceSpeedMps: 2.5,
+      minSpeedMps: 1.7,
+      maxSpeedMps: 2.5,
+    },
     smudgeDurationSeconds: 90,
     notes: [
       "Faster with LOS beyond ~3m when breaker is on; cannot turn the breaker off.",
@@ -81,7 +86,12 @@ export const GHOSTS: readonly Ghost[] = [
     id: "revenant",
     name: "Revenant",
     evidence: ["ghostOrbs", "ghostWriting", "freezing"],
-    speedProfile: { summary: "1.0–3.0 m/s", referenceSpeedMps: 3.0 },
+    speedProfile: {
+      summary: "1.0–3.0 m/s",
+      referenceSpeedMps: 3.0,
+      minSpeedMps: 1.0,
+      maxSpeedMps: 3.0,
+    },
     smudgeDurationSeconds: 90,
     notes: [
       "Very slow (~1.0 m/s) until it detects a player, then accelerates to ~3.0 m/s.",
@@ -141,7 +151,12 @@ export const GHOSTS: readonly Ghost[] = [
     id: "hantu",
     name: "Hantu",
     evidence: ["ghostOrbs", "fingerprints", "freezing"],
-    speedProfile: { summary: "1.4–2.7 m/s by temperature", referenceSpeedMps: 2.7 },
+    speedProfile: {
+      summary: "1.4–2.7 m/s by temperature",
+      referenceSpeedMps: 2.7,
+      minSpeedMps: 1.4,
+      maxSpeedMps: 2.7,
+    },
     smudgeDurationSeconds: 90,
     notes: [
       "Faster in cold rooms; visible breath on hunts if breaker is off; cannot turn breaker on.",
@@ -188,7 +203,12 @@ export const GHOSTS: readonly Ghost[] = [
     id: "twins",
     name: "The Twins",
     evidence: ["spiritBox", "emf5", "freezing"],
-    speedProfile: { summary: "1.5 / 1.9 m/s", referenceSpeedMps: 1.9 },
+    speedProfile: {
+      summary: "1.5 / 1.9 m/s",
+      referenceSpeedMps: 1.9,
+      minSpeedMps: 1.5,
+      maxSpeedMps: 1.9,
+    },
     smudgeDurationSeconds: 90,
     notes: [
       "Can interact in two places at once; hunt speed alternates between ~1.5 and ~1.9 m/s.",
@@ -198,7 +218,12 @@ export const GHOSTS: readonly Ghost[] = [
     id: "raiju",
     name: "Raiju",
     evidence: ["emf5", "ghostOrbs", "dots"],
-    speedProfile: { summary: "1.7–2.5 m/s near electronics", referenceSpeedMps: 2.5 },
+    speedProfile: {
+      summary: "1.7–2.5 m/s near electronics",
+      referenceSpeedMps: 2.5,
+      minSpeedMps: 1.7,
+      maxSpeedMps: 2.5,
+    },
     smudgeDurationSeconds: 90,
     notes: [
       "Faster near active electronics; electronics flicker from farther away (~15m).",
@@ -234,7 +259,12 @@ export const GHOSTS: readonly Ghost[] = [
     id: "moroi",
     name: "Moroi",
     evidence: ["spiritBox", "ghostWriting", "freezing"],
-    speedProfile: { summary: "1.5–2.25 m/s by sanity", referenceSpeedMps: 2.25 },
+    speedProfile: {
+      summary: "1.5–2.25 m/s by sanity",
+      referenceSpeedMps: 2.25,
+      minSpeedMps: 1.5,
+      maxSpeedMps: 2.25,
+    },
     smudgeDurationSeconds: 90,
     notes: [
       "Faster as average sanity drops; Spirit Box / parabolic can curse players (faster drain).",
@@ -247,7 +277,12 @@ export const GHOSTS: readonly Ghost[] = [
     id: "deogen",
     name: "Deogen",
     evidence: ["spiritBox", "ghostWriting", "dots"],
-    speedProfile: { summary: "0.4–3.0 m/s by distance", referenceSpeedMps: 3.0 },
+    speedProfile: {
+      summary: "0.4–3.0 m/s by distance",
+      referenceSpeedMps: 3.0,
+      minSpeedMps: 0.4,
+      maxSpeedMps: 3.0,
+    },
     smudgeDurationSeconds: 90,
     notes: [
       "Always knows player location; sprints from afar then slows to ~0.4 m/s when close.",
@@ -260,7 +295,12 @@ export const GHOSTS: readonly Ghost[] = [
     id: "thaye",
     name: "Thaye",
     evidence: ["ghostOrbs", "ghostWriting", "dots"],
-    speedProfile: { summary: "2.75 → 1.0 m/s as it ages", referenceSpeedMps: 2.75 },
+    speedProfile: {
+      summary: "2.75 → 1.0 m/s as it ages",
+      referenceSpeedMps: 2.75,
+      minSpeedMps: 1.0,
+      maxSpeedMps: 2.75,
+    },
     smudgeDurationSeconds: 90,
     notes: [
       "Starts young/fast/aggressive then ages weaker/slower; Ouija age can climb over time.",
@@ -270,7 +310,12 @@ export const GHOSTS: readonly Ghost[] = [
     id: "obambo",
     name: "Obambo",
     evidence: ["ghostWriting", "fingerprints", "dots"],
-    speedProfile: { summary: "1.45 / 1.96 m/s by state", referenceSpeedMps: 1.96 },
+    speedProfile: {
+      summary: "1.45 / 1.96 m/s by state",
+      referenceSpeedMps: 1.96,
+      minSpeedMps: 1.45,
+      maxSpeedMps: 1.96,
+    },
     smudgeDurationSeconds: 90,
     notes: [
       "Cycles calm ↔ aggressive about every 2 minutes; aggressive hunts are earlier but shorter.",
@@ -283,6 +328,8 @@ export const GHOSTS: readonly Ghost[] = [
     speedProfile: {
       summary: "1.36–1.96 m/s by rage state",
       referenceSpeedMps: 1.96,
+      minSpeedMps: 1.36,
+      maxSpeedMps: 1.96,
     },
     smudgeDurationSeconds: 90,
     notes: [
@@ -296,6 +343,8 @@ export const GHOSTS: readonly Ghost[] = [
     speedProfile: {
       summary: "1.2–2.25 m/s by player movement",
       referenceSpeedMps: 2.25,
+      minSpeedMps: 1.2,
+      maxSpeedMps: 2.25,
     },
     smudgeDurationSeconds: 90,
     notes: [
@@ -306,7 +355,12 @@ export const GHOSTS: readonly Ghost[] = [
     id: "kormos",
     name: "Kormos",
     evidence: ["ghostOrbs", "spiritBox", "fingerprints"],
-    speedProfile: { summary: "1.7–2.21 m/s when detecting", referenceSpeedMps: 2.21 },
+    speedProfile: {
+      summary: "1.7–2.21 m/s when detecting",
+      referenceSpeedMps: 2.21,
+      minSpeedMps: 1.7,
+      maxSpeedMps: 2.21,
+    },
     smudgeDurationSeconds: 90,
     notes: [
       "Completely blind; detects players from farther away; sprinting in its room can raise hunt chance.",
@@ -329,6 +383,8 @@ export const GHOSTS: readonly Ghost[] = [
     speedProfile: {
       summary: "3.0 → 0.4 m/s after object throws",
       referenceSpeedMps: 3.0,
+      minSpeedMps: 0.4,
+      maxSpeedMps: 3.0,
     },
     smudgeDurationSeconds: 90,
     notes: [

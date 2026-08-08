@@ -1,29 +1,34 @@
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import { restartVoiceSidecar, stopVoiceSidecar } from "../services/sidecarApi";
+import { setOverlayInteractive } from "../services/overlayWindow";
 import { useInvestigationStore } from "../state/investigationStore";
 import {
   applyThemeToDocument,
   usePreferencesStore,
 } from "../state/preferencesStore";
+import { useVoiceDiagnosticsStore } from "../state/voiceDiagnosticsStore";
 import {
   clampTimingResultHideAfterSeconds,
+  EVIDENCE_DIFFICULTY_OPTIONS,
   GHOST_SPEED_MULTIPLIER_OPTIONS,
   TIMING_RESULT_HIDE_MAX_SECONDS,
   TIMING_RESULT_HIDE_MIN_SECONDS,
+  type EvidenceDifficultyId,
   type GhostSpeedMultiplier,
 } from "../types/investigationSettings";
 import {
-  clampOverlayScale,
   DEFAULT_HOTKEY_PREFERENCES,
-  OVERLAY_SCALE_MAX,
-  OVERLAY_SCALE_MIN,
   type AppTheme,
 } from "../types/persistedPreferences";
 import {
+  clampHudScale,
   clampTickerSpeed,
   DEFAULT_OVERLAY_APPEARANCE,
   normalizeHexColor,
+  OVERLAY_HUD_SCALE_MAX,
+  OVERLAY_HUD_SCALE_MIN,
   OVERLAY_TICKER_SPEED_MAX,
   OVERLAY_TICKER_SPEED_MIN,
 } from "../types/overlayAppearance";
@@ -69,7 +74,6 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
   const theme = usePreferencesStore((state) => state.theme);
   const hotkeys = usePreferencesStore((state) => state.hotkeys);
   const microphone = usePreferencesStore((state) => state.microphone);
-  const overlayLayout = usePreferencesStore((state) => state.overlay);
   const setTheme = usePreferencesStore((state) => state.setTheme);
   const setHotkeys = usePreferencesStore((state) => state.setHotkeys);
   const setMicrophone = usePreferencesStore((state) => state.setMicrophone);
@@ -91,6 +95,21 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
     }
   }
 
+  const exitOverlayEditMode = (): void => {
+    if (!appearance.layoutEditMode) {
+      return;
+    }
+    setOverlayAppearance({ layoutEditMode: false });
+    void setOverlayInteractive(false).catch((error: unknown) => {
+      console.warn("Failed to leave overlay edit mode", error);
+    });
+  };
+
+  const handleClose = (): void => {
+    exitOverlayEditMode();
+    onClose();
+  };
+
   useEffect(() => {
     if (!open) {
       return;
@@ -99,14 +118,68 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
     const onKeyDown = (event: KeyboardEvent): void => {
       if (event.key === "Escape") {
         event.preventDefault();
+        if (appearance.layoutEditMode) {
+          setOverlayAppearance({ layoutEditMode: false });
+          void setOverlayInteractive(false).catch((error: unknown) => {
+            console.warn("Failed to leave overlay edit mode", error);
+          });
+        }
         onClose();
+        return;
+      }
+
+      if (event.key !== "Tab") {
+        return;
+      }
+
+      const dialog = document.getElementById("settings-dialog");
+      if (!dialog) {
+        return;
+      }
+
+      const focusable = Array.from(
+        dialog.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        ),
+      ).filter((element) => !element.hasAttribute("disabled"));
+
+      if (focusable.length === 0) {
+        return;
+      }
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const active = document.activeElement as HTMLElement | null;
+
+      if (event.shiftKey) {
+        if (active === first || !dialog.contains(active)) {
+          event.preventDefault();
+          last.focus();
+        }
+      } else if (active === last) {
+        event.preventDefault();
+        first.focus();
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => {
       window.removeEventListener("keydown", onKeyDown);
     };
-  }, [open, onClose]);
+  }, [open, appearance.layoutEditMode, onClose, setOverlayAppearance]);
+
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    const frame = window.requestAnimationFrame(() => {
+      closeButtonRef.current?.focus();
+    });
+    return () => {
+      window.cancelAnimationFrame(frame);
+    };
+  }, [open]);
 
   useEffect(() => {
     if (!open) {
@@ -162,11 +235,12 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            onClick={onClose}
+            onClick={handleClose}
             className="fixed inset-0 z-40 bg-black/60 backdrop-blur-[2px]"
           />
 
           <motion.dialog
+            id="settings-dialog"
             open
             aria-modal="true"
             aria-labelledby="settings-title"
@@ -198,8 +272,9 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                 </p>
               </div>
               <button
+                ref={closeButtonRef}
                 type="button"
-                onClick={onClose}
+                onClick={handleClose}
                 className="btn-ghost focus-ring px-2.5 py-1 text-xs"
               >
                 Close
@@ -242,8 +317,8 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
               <section className="inset-block px-3 py-3">
                 <p className="text-sm font-medium text-[var(--text-secondary)]">Voice</p>
                 <p className="mt-0.5 text-xs text-[var(--text-faint)]">
-                  Preferred microphone (sidecar currently uses system default;
-                  selection is remembered for future routing)
+                  Choose a microphone or disable voice entirely. Changing this
+                  restarts or stops the sidecar.
                 </p>
                 <label className="mt-3 block">
                   <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-[var(--text-faint)]">
@@ -256,18 +331,63 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                       background: "var(--inset-bg)",
                       color: "var(--text-primary)",
                     }}
-                    value={microphone.deviceId ?? ""}
+                    value={
+                      microphone.enabled
+                        ? (microphone.deviceId ?? "")
+                        : "__none__"
+                    }
                     onChange={(event) => {
-                      const deviceId = event.target.value || null;
+                      const value = event.target.value;
+                      if (value === "__none__") {
+                        setMicrophone({
+                          deviceId: null,
+                          label: null,
+                          enabled: false,
+                        });
+                        void stopVoiceSidecar()
+                          .then((status) => {
+                            useVoiceDiagnosticsStore
+                              .getState()
+                              .applyRuntimeStatus(status);
+                          })
+                          .catch((error: unknown) => {
+                            console.warn("Failed to disable voice sidecar", error);
+                          });
+                        return;
+                      }
+
+                      const deviceId = value || null;
                       const option = micOptions.find(
                         (entry) => entry.deviceId === deviceId,
                       );
+                      const label = option?.label ?? null;
                       setMicrophone({
                         deviceId,
-                        label: option?.label ?? null,
+                        label,
+                        enabled: true,
                       });
+                      void restartVoiceSidecar(label)
+                        .then((status) => {
+                          useVoiceDiagnosticsStore
+                            .getState()
+                            .applyRuntimeStatus(status);
+                        })
+                        .catch((error: unknown) => {
+                          console.warn(
+                            "Failed to restart sidecar with selected microphone",
+                            error,
+                          );
+                          useVoiceDiagnosticsStore.getState().applySidecarError({
+                            message:
+                              error instanceof Error
+                                ? error.message
+                                : "Failed to apply microphone selection",
+                            recoverable: true,
+                          });
+                        });
                     }}
                   >
+                    <option value="__none__">None (voice disabled)</option>
                     <option value="">System default</option>
                     {micOptions.map((option) => (
                       <option key={option.deviceId} value={option.deviceId}>
@@ -349,8 +469,9 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
               <section className="inset-block px-3 py-3">
                 <p className="text-sm font-medium text-[var(--text-secondary)]">Windows</p>
                 <p className="mt-0.5 text-xs text-[var(--text-faint)]">
-                  Main/overlay geometry is saved automatically when you move or
-                  resize. Overlay HUD scale is below.
+                  Main geometry (including maximized on any monitor) saves
+                  automatically. Overlay stays click-through during play — use
+                  Edit Layout to move/resize it.
                 </p>
                 <div className="mt-4">
                   <div className="flex items-center justify-between gap-2">
@@ -358,37 +479,103 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                       htmlFor="overlay-scale"
                       className="text-[11px] font-medium uppercase tracking-[0.08em] text-[var(--text-faint)]"
                     >
-                      Overlay scale
+                      Overlay HUD scale
                     </label>
                     <span className="font-mono text-[11px] text-[var(--text-muted)]">
-                      {Math.round(overlayLayout.scale * 100)}%
+                      {Math.round(appearance.hudScale * 100)}%
                     </span>
                   </div>
                   <input
                     id="overlay-scale"
                     type="range"
-                    min={OVERLAY_SCALE_MIN}
-                    max={OVERLAY_SCALE_MAX}
+                    min={OVERLAY_HUD_SCALE_MIN}
+                    max={OVERLAY_HUD_SCALE_MAX}
                     step={0.05}
-                    value={overlayLayout.scale}
+                    value={appearance.hudScale}
                     onChange={(event) => {
-                      setOverlayLayout({
-                        scale: clampOverlayScale(Number(event.target.value)),
-                      });
+                      const hudScale = clampHudScale(Number(event.target.value));
+                      setOverlayAppearance({ hudScale });
                     }}
                     className="mt-2 w-full accent-[var(--accent)]"
                   />
                 </div>
-                <button
-                  type="button"
-                  className="btn-ghost focus-ring mt-3 px-2 py-1 text-[11px]"
-                  onClick={() => {
-                    setOverlayLayout({ scale: 1, geometry: null });
-                    void resetOverlayWindowLayout();
-                  }}
-                >
-                  Reset overlay layout
-                </button>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    className="btn-accent focus-ring px-2 py-1 text-[11px]"
+                    onClick={() => {
+                      const next = !appearance.layoutEditMode;
+                      setOverlayAppearance({ layoutEditMode: next });
+                      void setOverlayInteractive(next).catch(
+                        (error: unknown) => {
+                          console.warn("Failed to toggle overlay edit mode", error);
+                        },
+                      );
+                    }}
+                  >
+                    {appearance.layoutEditMode
+                      ? "Done editing overlay"
+                      : "Edit overlay layout"}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-ghost focus-ring px-2 py-1 text-[11px]"
+                    onClick={() => {
+                      setOverlayAppearance({
+                        hudScale: 1,
+                        layoutEditMode: false,
+                      });
+                      setOverlayLayout({ scale: 1, geometry: null });
+                      void setOverlayInteractive(false);
+                      void resetOverlayWindowLayout();
+                    }}
+                  >
+                    Reset overlay layout
+                  </button>
+                </div>
+              </section>
+
+              <section className="inset-block px-3 py-3">
+                <p className="text-sm font-medium text-[var(--text-secondary)]">
+                  Evidence Difficulty
+                </p>
+                <p className="mt-0.5 text-xs text-[var(--text-faint)]">
+                  Journal evidence count and forced-evidence filtering. Mimic
+                  Ghost Orbs remain always-presented extras on every mode.
+                </p>
+
+                <fieldset className="mt-3 space-y-1.5">
+                  <legend className="sr-only">Evidence difficulty</legend>
+                  {EVIDENCE_DIFFICULTY_OPTIONS.map((option) => {
+                    const selected =
+                      settings.evidenceDifficulty === option.id;
+                    return (
+                      <label
+                        key={option.id}
+                        className={`flex cursor-pointer items-center gap-2.5 rounded-md border px-2.5 py-2 text-sm transition-colors ${
+                          selected
+                            ? "border-[var(--accent-border)] bg-[var(--accent-soft)] text-[var(--accent-strong)]"
+                            : "border-[var(--panel-border)] bg-[var(--inset-bg)] text-[var(--text-secondary)] hover:border-[color-mix(in_srgb,var(--text-faint)_55%,transparent)]"
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="evidence-difficulty"
+                          value={option.id}
+                          checked={selected}
+                          onChange={() => {
+                            setInvestigationSettings({
+                              evidenceDifficulty:
+                                option.id as EvidenceDifficultyId,
+                            });
+                          }}
+                          className="accent-[var(--accent)]"
+                        />
+                        <span>{option.label}</span>
+                      </label>
+                    );
+                  })}
+                </fieldset>
               </section>
 
               <section className="inset-block px-3 py-3">
@@ -477,16 +664,45 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
               <section className="inset-block px-3 py-3">
                 <p className="text-sm font-medium text-[var(--text-secondary)]">Overlay HUD</p>
                 <p className="mt-0.5 text-xs text-[var(--text-faint)]">
-                  Ghost ticker color and scroll speed
+                  Accent color themes Main + Overlay. Toggle which HUD pieces
+                  appear during investigations.
                 </p>
 
                 <div className="mt-4 space-y-4">
+                  <div className="grid grid-cols-2 gap-2">
+                    {(
+                      [
+                        ["showGhosts", "Ghost ticker"],
+                        ["showTimers", "Timers"],
+                        ["showTiming", "Timing / speed"],
+                        ["showToasts", "Toasts"],
+                      ] as const
+                    ).map(([key, label]) => (
+                      <label
+                        key={key}
+                        className="flex cursor-pointer items-center gap-2 rounded-md border border-[var(--panel-border)] bg-[var(--inset-bg)] px-2.5 py-2 text-xs"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={appearance[key]}
+                          onChange={(event) => {
+                            setOverlayAppearance({ [key]: event.target.checked });
+                          }}
+                          className="accent-[var(--accent)]"
+                        />
+                        <span style={{ color: "var(--text-secondary)" }}>
+                          {label}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+
                   <div>
                     <label
                       htmlFor="overlay-ghost-color"
                       className="text-[11px] font-medium uppercase tracking-[0.08em] text-[var(--text-faint)]"
                     >
-                      Ghost text color
+                      Accent / overlay color
                     </label>
                     <div className="mt-2 flex items-center gap-3">
                       <input
@@ -521,7 +737,7 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                           }
                         }}
                         className="focus-ring flex-1 rounded-md border border-[var(--panel-border)] bg-[var(--inset-bg)] px-2.5 py-1.5 font-mono text-xs text-[var(--text-primary)] outline-none"
-                        aria-label="Ghost text color hex"
+                        aria-label="Accent color hex"
                       />
                     </div>
                     <div className="mt-2 flex flex-wrap gap-1.5">

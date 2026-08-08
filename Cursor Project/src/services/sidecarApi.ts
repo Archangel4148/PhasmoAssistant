@@ -28,8 +28,12 @@ export async function fetchSidecarStatus(): Promise<SidecarRuntimeStatus> {
   return invoke<SidecarRuntimeStatus>("get_sidecar_status");
 }
 
-export async function restartVoiceSidecar(): Promise<SidecarRuntimeStatus> {
-  return invoke<SidecarRuntimeStatus>("restart_voice_sidecar");
+export async function restartVoiceSidecar(
+  deviceName: string | null = null,
+): Promise<SidecarRuntimeStatus> {
+  return invoke<SidecarRuntimeStatus>("restart_voice_sidecar", {
+    deviceName,
+  });
 }
 
 export async function stopVoiceSidecar(): Promise<SidecarRuntimeStatus> {

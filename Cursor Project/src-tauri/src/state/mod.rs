@@ -16,6 +16,26 @@ pub struct OverlayToast {
 pub struct OverlayAppearance {
     pub ghost_text_color: String,
     pub ticker_speed_px_per_sec: f64,
+    #[serde(default = "default_hud_scale")]
+    pub hud_scale: f64,
+    #[serde(default = "default_true")]
+    pub show_ghosts: bool,
+    #[serde(default = "default_true")]
+    pub show_timers: bool,
+    #[serde(default = "default_true")]
+    pub show_timing: bool,
+    #[serde(default = "default_true")]
+    pub show_toasts: bool,
+    #[serde(default)]
+    pub layout_edit_mode: bool,
+}
+
+fn default_hud_scale() -> f64 {
+    1.0
+}
+
+fn default_true() -> bool {
+    true
 }
 
 impl Default for OverlayAppearance {
@@ -23,6 +43,12 @@ impl Default for OverlayAppearance {
         Self {
             ghost_text_color: "#9aa7b8".to_string(),
             ticker_speed_px_per_sec: 26.0,
+            hud_scale: 1.0,
+            show_ghosts: true,
+            show_timers: true,
+            show_timing: true,
+            show_toasts: true,
+            layout_edit_mode: false,
         }
     }
 }
@@ -53,12 +79,19 @@ fn default_hunt_timer() -> InvestigationTimer {
 pub struct InvestigationSettings {
     pub ghost_speed_multiplier: f64,
     pub timing_result_hide_after_seconds: u32,
+    #[serde(default = "default_evidence_difficulty")]
+    pub evidence_difficulty: String,
+}
+
+fn default_evidence_difficulty() -> String {
+    "standard".to_string()
 }
 
 fn default_investigation_settings() -> InvestigationSettings {
     InvestigationSettings {
         ghost_speed_multiplier: 1.0,
         timing_result_hide_after_seconds: 7,
+        evidence_difficulty: default_evidence_difficulty(),
     }
 }
 

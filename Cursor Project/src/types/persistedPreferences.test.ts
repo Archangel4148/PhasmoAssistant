@@ -41,6 +41,7 @@ describe("resolvePersistedPreferences", () => {
       y: 20,
       width: 1280,
       height: 800,
+      maximized: false,
     });
     expect(resolved.overlay.scale).toBe(1.5);
     expect(resolved.overlay.geometry).toBeNull(); // height too small
@@ -48,13 +49,17 @@ describe("resolvePersistedPreferences", () => {
     expect(resolved.investigationSettings.timingResultHideAfterSeconds).toBe(
       15,
     );
+    expect(resolved.investigationSettings.evidenceDifficulty).toBe("standard");
     expect(resolved.hotkeys.toggleTiming).toBe("Alt+T");
     expect(resolved.hotkeys.recordFootstep).toEqual(["Space"]);
     expect(resolved.microphone).toEqual({
       deviceId: "mic-1",
       label: "Headset",
+      enabled: true,
     });
     expect(resolved.overlayAppearance.ghostTextColor).toBe("#ff00aa");
+    expect(resolved.overlayAppearance.hudScale).toBe(1.5);
+    expect(resolved.overlayAppearance.showGhosts).toBe(true);
     expect(resolved.smudgeDurationSeconds).toBe(180);
     expect(resolved.huntCooldownDurationSeconds).toBe(15);
   });

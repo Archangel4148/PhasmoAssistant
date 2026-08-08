@@ -171,7 +171,8 @@ export function InvestigationToolsPanel() {
       <div className="mb-4">
         <h2 className="panel-title">Investigation Tools</h2>
         <p className="panel-subtitle">
-          Footstep timing, smudge, and hunt cooldown
+          Footstep timing, smudge, and hunt cooldown · Smudge preset auto-matches
+          when remaining ghosts share one incense window
         </p>
       </div>
 

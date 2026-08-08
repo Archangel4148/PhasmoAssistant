@@ -6,8 +6,7 @@ import {
 } from "./investigationSettings";
 import {
   DEFAULT_OVERLAY_APPEARANCE,
-  clampTickerSpeed,
-  normalizeHexColor,
+  resolveOverlayAppearance,
   type OverlayAppearanceSettings,
 } from "./overlayAppearance";
 
@@ -21,6 +20,8 @@ export interface WindowGeometry {
   y: number;
   width: number;
   height: number;
+  /** When true, restore should maximize after positioning (multi-monitor safe). */
+  maximized?: boolean;
 }
 
 export interface OverlayLayoutPreferences {
@@ -40,6 +41,8 @@ export interface HotkeyPreferences {
 export interface MicrophonePreferences {
   deviceId: string | null;
   label: string | null;
+  /** When false, voice sidecar stays stopped. */
+  enabled: boolean;
 }
 
 export interface PersistedPreferences {
@@ -69,6 +72,7 @@ export const DEFAULT_HOTKEY_PREFERENCES: HotkeyPreferences = {
 export const DEFAULT_MICROPHONE_PREFERENCES: MicrophonePreferences = {
   deviceId: null,
   label: null,
+  enabled: true,
 };
 
 export const DEFAULT_PERSISTED_PREFERENCES: PersistedPreferences = {
@@ -118,6 +122,7 @@ export function normalizeWindowGeometry(
     y: Math.round(y),
     width: Math.round(width),
     height: Math.round(height),
+    maximized: record.maximized === true,
   };
 }
 
@@ -175,26 +180,21 @@ function normalizeMicrophone(value: unknown): MicrophonePreferences {
       typeof record.label === "string" && record.label.trim().length > 0
         ? record.label
         : null,
+    enabled: record.enabled !== false,
   };
 }
 
-function normalizeOverlayAppearance(value: unknown): OverlayAppearanceSettings {
+function normalizeOverlayAppearance(
+  value: unknown,
+  legacyScale?: number,
+): OverlayAppearanceSettings {
   if (!value || typeof value !== "object") {
-    return { ...DEFAULT_OVERLAY_APPEARANCE };
+    return resolveOverlayAppearance(null, legacyScale);
   }
-  const record = value as Record<string, unknown>;
-  return {
-    ghostTextColor: normalizeHexColor(
-      typeof record.ghostTextColor === "string"
-        ? record.ghostTextColor
-        : DEFAULT_OVERLAY_APPEARANCE.ghostTextColor,
-    ),
-    tickerSpeedPxPerSec: clampTickerSpeed(
-      typeof record.tickerSpeedPxPerSec === "number"
-        ? record.tickerSpeedPxPerSec
-        : DEFAULT_OVERLAY_APPEARANCE.tickerSpeedPxPerSec,
-    ),
-  };
+  return resolveOverlayAppearance(
+    value as Partial<OverlayAppearanceSettings>,
+    legacyScale,
+  );
 }
 
 function normalizeOverlayLayout(value: unknown): OverlayLayoutPreferences {
@@ -237,11 +237,16 @@ export function resolvePersistedPreferences(
 
   const record = value as Record<string, unknown>;
 
+  const overlay = normalizeOverlayLayout(record.overlay);
+
   return {
     version: PREFERENCES_VERSION,
     mainWindow: normalizeWindowGeometry(record.mainWindow),
-    overlay: normalizeOverlayLayout(record.overlay),
-    overlayAppearance: normalizeOverlayAppearance(record.overlayAppearance),
+    overlay,
+    overlayAppearance: normalizeOverlayAppearance(
+      record.overlayAppearance,
+      overlay.scale,
+    ),
     investigationSettings: resolveInvestigationSettings(
       record.investigationSettings as Partial<InvestigationSettings> | undefined,
     ),

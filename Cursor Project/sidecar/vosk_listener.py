@@ -112,6 +112,12 @@ def parse_args() -> argparse.Namespace:
         help="Optional sounddevice input index",
     )
     parser.add_argument(
+        "--device-name",
+        type=str,
+        default=None,
+        help="Optional input device name substring (matched via sounddevice)",
+    )
+    parser.add_argument(
         "--samplerate",
         type=int,
         default=16000,
@@ -138,7 +144,47 @@ def run_mock_idle() -> int:
         return 0
 
 
-def run_vosk(model_path: Path, device: int | None, samplerate: int) -> int:
+def resolve_input_device(
+    sd: Any,
+    device: int | None,
+    device_name: str | None,
+) -> int | None:
+    """Resolve a sounddevice input index from an explicit index or name substring."""
+    if device is not None:
+        return device
+
+    if not device_name or not str(device_name).strip():
+        return None
+
+    needle = str(device_name).strip().lower()
+    devices = sd.query_devices()
+    candidates: list[tuple[int, str]] = []
+    for index, entry in enumerate(devices):
+        if int(entry.get("max_input_channels", 0)) <= 0:
+            continue
+        name = str(entry.get("name", ""))
+        if needle in name.lower() or name.lower() in needle:
+            candidates.append((index, name))
+
+    if not candidates:
+        raise RuntimeError(
+            f"No input device matching '{device_name}'. "
+            "Pick another microphone in Settings or use System default."
+        )
+
+    # Prefer the shortest name (usually the most specific host API entry).
+    candidates.sort(key=lambda item: (len(item[1]), item[0]))
+    chosen_index, chosen_name = candidates[0]
+    log(f"resolved input device '{device_name}' → [{chosen_index}] {chosen_name}")
+    return chosen_index
+
+
+def run_vosk(
+    model_path: Path,
+    device: int | None,
+    device_name: str | None,
+    samplerate: int,
+) -> int:
     try:
         import sounddevice as sd  # type: ignore
         from vosk import KaldiRecognizer, Model  # type: ignore
@@ -155,6 +201,13 @@ def run_vosk(model_path: Path, device: int | None, samplerate: int) -> int:
         return 0
 
     emit_status("starting")
+    try:
+        resolved_device = resolve_input_device(sd, device, device_name)
+    except Exception as error:  # noqa: BLE001
+        emit_error(str(error), recoverable=True)
+        emit_status("error")
+        return 0
+
     log(f"loading model from {model_path}")
     try:
         model = Model(str(model_path))
@@ -177,7 +230,7 @@ def run_vosk(model_path: Path, device: int | None, samplerate: int) -> int:
         stream = sd.RawInputStream(
             samplerate=samplerate,
             blocksize=8000,
-            device=device,
+            device=resolved_device,
             dtype="int16",
             channels=1,
             callback=audio_callback,
@@ -191,7 +244,10 @@ def run_vosk(model_path: Path, device: int | None, samplerate: int) -> int:
         return 0
 
     emit_status("listening")
-    log("listening for wake word 'trigger'")
+    if resolved_device is None:
+        log("listening on system default input for wake word 'trigger'")
+    else:
+        log(f"listening on device {resolved_device} for wake word 'trigger'")
 
     armed_until = 0.0
 
@@ -235,7 +291,7 @@ def main() -> int:
     args = parse_args()
     if args.mock or os.environ.get("PHASMO_VOICE_MOCK") == "1":
         return run_mock_idle()
-    return run_vosk(Path(args.model), args.device, args.samplerate)
+    return run_vosk(Path(args.model), args.device, args.device_name, args.samplerate)
 
 
 if __name__ == "__main__":

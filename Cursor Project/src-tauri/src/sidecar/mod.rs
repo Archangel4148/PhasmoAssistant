@@ -57,6 +57,8 @@ struct SidecarInner {
     status: SidecarRuntimeStatus,
     /// Monotonic generation so stale reader threads ignore late output.
     generation: u64,
+    /// Preferred microphone label (matched in Python via sounddevice name).
+    preferred_device_name: Option<String>,
 }
 
 impl SidecarManager {
@@ -66,6 +68,7 @@ impl SidecarManager {
                 process: None,
                 status: SidecarRuntimeStatus::default(),
                 generation: 0,
+                preferred_device_name: None,
             }),
         }
     }
@@ -75,6 +78,29 @@ impl SidecarManager {
             .lock()
             .map(|guard| guard.status.clone())
             .unwrap_or_default()
+    }
+
+    pub fn set_preferred_device_name(&self, device_name: Option<String>) -> Result<(), String> {
+        let mut guard = self
+            .inner
+            .lock()
+            .map_err(|_| "sidecar manager lock poisoned".to_string())?;
+        guard.preferred_device_name = device_name.and_then(|name| {
+            let trimmed = name.trim().to_string();
+            if trimmed.is_empty() {
+                None
+            } else {
+                Some(trimmed)
+            }
+        });
+        Ok(())
+    }
+
+    pub fn preferred_device_name(&self) -> Option<String> {
+        self.inner
+            .lock()
+            .ok()
+            .and_then(|guard| guard.preferred_device_name.clone())
     }
 
     pub fn stop(&self, app: &AppHandle) -> Result<(), String> {
@@ -107,7 +133,8 @@ impl SidecarManager {
         self.stop(app)?;
 
         let (script, using_mock) = resolve_sidecar_script(app)?;
-        let mut command = build_python_command(&script, using_mock)?;
+        let device_name = self.preferred_device_name();
+        let mut command = build_python_command(&script, using_mock, device_name.as_deref())?;
 
         #[cfg(windows)]
         {
@@ -303,7 +330,11 @@ fn candidate_scripts(app: &AppHandle, file_name: &str) -> Vec<PathBuf> {
     candidates
 }
 
-fn build_python_command(script: &Path, using_mock_script: bool) -> Result<Command, String> {
+fn build_python_command(
+    script: &Path,
+    using_mock_script: bool,
+    device_name: Option<&str>,
+) -> Result<Command, String> {
     let script_str = script
         .to_str()
         .ok_or_else(|| "sidecar script path is not valid UTF-8".to_string())?;
@@ -325,6 +356,9 @@ fn build_python_command(script: &Path, using_mock_script: bool) -> Result<Comman
                 // Legacy mock listener demo cadence for Diagnostics without a mic.
                 command.arg("--demo-interval");
                 command.arg("15");
+            } else if let Some(name) = device_name {
+                command.arg("--device-name");
+                command.arg(name);
             }
             return Ok(command);
         }

@@ -33,6 +33,27 @@ interface PreferencesStoreState extends PersistedPreferences {
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
 
+function preferencesPayload(
+  state: PreferencesStoreState,
+): PersistedPreferences {
+  return {
+    version: state.version,
+    mainWindow: state.mainWindow,
+    overlay: state.overlay,
+    overlayAppearance: {
+      ...state.overlayAppearance,
+      // Never persist temporary layout-edit mode.
+      layoutEditMode: false,
+    },
+    investigationSettings: state.investigationSettings,
+    hotkeys: state.hotkeys,
+    theme: state.theme,
+    microphone: state.microphone,
+    smudgeDurationSeconds: state.smudgeDurationSeconds,
+    huntCooldownDurationSeconds: state.huntCooldownDurationSeconds,
+  };
+}
+
 function scheduleSave(getState: () => PreferencesStoreState): void {
   if (saveTimer) {
     clearTimeout(saveTimer);
@@ -42,19 +63,21 @@ function scheduleSave(getState: () => PreferencesStoreState): void {
     if (!state.hydrated) {
       return;
     }
-    void savePersistedPreferences({
-      version: state.version,
-      mainWindow: state.mainWindow,
-      overlay: state.overlay,
-      overlayAppearance: state.overlayAppearance,
-      investigationSettings: state.investigationSettings,
-      hotkeys: state.hotkeys,
-      theme: state.theme,
-      microphone: state.microphone,
-      smudgeDurationSeconds: state.smudgeDurationSeconds,
-      huntCooldownDurationSeconds: state.huntCooldownDurationSeconds,
-    });
+    void savePersistedPreferences(preferencesPayload(state));
   }, 250);
+}
+
+/** Flush pending preference writes (call before window close). */
+export async function flushPreferencesSave(): Promise<void> {
+  if (saveTimer) {
+    clearTimeout(saveTimer);
+    saveTimer = null;
+  }
+  const state = usePreferencesStore.getState();
+  if (!state.hydrated) {
+    return;
+  }
+  await savePersistedPreferences(preferencesPayload(state));
 }
 
 function toPreferences(state: PreferencesStoreState): PersistedPreferences {
@@ -132,7 +155,12 @@ export const usePreferencesStore = create<PreferencesStoreState>((set, get) => (
   },
 
   setOverlayAppearancePrefs: (appearance) => {
-    set({ overlayAppearance: appearance });
+    set({
+      overlayAppearance: {
+        ...appearance,
+        layoutEditMode: false,
+      },
+    });
     scheduleSave(get);
   },
 

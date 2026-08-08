@@ -6,6 +6,7 @@ interface HeaderProps {
   voiceStatus: VoiceStatus;
   possibleGhostCount: number;
   onOpenSettings: () => void;
+  onResetInvestigation: () => void;
 }
 
 const VOICE_STATUS_LABEL: Record<VoiceStatus, string> = {
@@ -26,6 +27,7 @@ export function Header({
   voiceStatus,
   possibleGhostCount,
   onOpenSettings,
+  onResetInvestigation,
 }: HeaderProps) {
   return (
     <header
@@ -33,6 +35,8 @@ export function Header({
       style={{
         borderColor: "var(--panel-border)",
         background: "var(--app-bg-elevated)",
+        boxShadow:
+          "inset 0 -1px 0 color-mix(in srgb, var(--accent) 35%, transparent)",
       }}
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -43,7 +47,10 @@ export function Header({
           >
             Phasmophobia Companion
           </h1>
-          <p className="text-xs sm:text-sm" style={{ color: "var(--text-faint)" }}>
+          <p
+            className="text-xs sm:text-sm"
+            style={{ color: "var(--text-faint)" }}
+          >
             Investigation control panel
           </p>
         </div>
@@ -61,6 +68,18 @@ export function Header({
             <span className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-current opacity-80" />
             {VOICE_STATUS_LABEL[voiceStatus]}
           </StatusBadge>
+
+          <motion.button
+            type="button"
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            transition={{ duration: 0.15 }}
+            onClick={onResetInvestigation}
+            className="btn-ghost focus-ring px-3 py-1.5 text-xs font-medium"
+            title="Clear evidence, timers, and timing"
+          >
+            Reset
+          </motion.button>
 
           <motion.button
             type="button"
