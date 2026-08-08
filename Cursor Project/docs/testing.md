@@ -318,7 +318,7 @@ Manual verification:
 - Microphone **None** stops voice; selecting a mic restarts it
 - Accent color updates Main header/panel accents + overlay ghost text
 - Diagnostics → View accepted voice phrases lists catalog entries
-- Packaged app uses the hooded-figure icons (`src-tauri/icons`, from `assets/app-icon.png`)
+- Packaged app uses the hooded-figure icons (`src-tauri/icons`, from `assets/app-icon-transparent.png`)
 
 ---
 

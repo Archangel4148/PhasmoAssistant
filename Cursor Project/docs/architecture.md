@@ -33,6 +33,8 @@ src-tauri/src/
   state/            # Investigation snapshot mirror
 ```
 
+
+
 ### Decisions
 
 - Rust mirrors investigation snapshots for multi-window sync; TypeScript domain remains the single filtering implementation.
@@ -41,13 +43,19 @@ src-tauri/src/
 
 ---
 
+
+
 ## Phase 2 — Main Window UI (complete)
 
 Static mock-data-driven Main Window shell. See git history / prior docs for layout and component breakdown.
 
 ---
 
+
+
 ## Phase 3 — State and Domain Logic (complete)
+
+
 
 ### Scope
 
@@ -55,12 +63,14 @@ Evidence tracking and ghost filtering via a domain layer and Zustand investigati
 
 ### Domain layer
 
-| Module | Responsibility |
-|--------|----------------|
-| `domain/evidence/evidenceRules.ts` | Cycle evidence states; query confirmed/eliminated ids |
-| `domain/evidence/evidenceState.ts` | Evidence map CRUD helpers |
-| `domain/ghosts/filterPossibleGhosts.ts` | Determine which ghosts remain possible |
-| `domain/ghosts/buildGhostDisplayItems.ts` | Attach `isPossible` to ghost roster (stable order) |
+
+| Module                                    | Responsibility                                        |
+| ----------------------------------------- | ----------------------------------------------------- |
+| `domain/evidence/evidenceRules.ts`        | Cycle evidence states; query confirmed/eliminated ids |
+| `domain/evidence/evidenceState.ts`        | Evidence map CRUD helpers                             |
+| `domain/ghosts/filterPossibleGhosts.ts`   | Determine which ghosts remain possible                |
+| `domain/ghosts/buildGhostDisplayItems.ts` | Attach `isPossible` to ghost roster (stable order)    |
+
 
 **Filtering rules** (single implementation):
 
@@ -88,6 +98,8 @@ Timers use deadline-based domain state (`domain/timers`); see Phase 8. Voice/dia
 - **Ghost panel:** renders store `ghosts`; opacity driven by `isPossible` only.
 - **Header:** possible-ghost count from store `possibleGhostCount`.
 
+
+
 ### Testing
 
 Vitest unit tests cover evidence cycling and ghost filtering (`npm run test`). No React/Tauri in domain tests.
@@ -102,7 +114,11 @@ Vitest unit tests cover evidence cycling and ghost filtering (`npm run test`). N
 
 ---
 
+
+
 ## Phase 4 — Overlay (complete)
+
+
 
 ### Scope
 
@@ -136,14 +152,18 @@ Main Zustand mutation
 - Rust stores a serializable snapshot (evidence map + overlay fields + toasts); it does not reimplement filtering.
 - Main is the sync publisher; Overlay is read-only listener (+ initial fetch).
 
+
+
 ### Overlay UI
 
-| Region | Content |
-|--------|---------|
+
+| Region           | Content                                                                                                |
+| ---------------- | ------------------------------------------------------------------------------------------------------ |
 | Top left → right | Horizontal possible-ghost ticker (softer default color; scrolls when overflowing; clears timer corner) |
-| Top right | Smudge / hunt timers (idle ~40% opacity, active ~90%) |
-| Center | Timing mode pulse (when active) |
-| Bottom right | Toasts (~2.5s TTL), e.g. evidence confirmed |
+| Top right        | Smudge / hunt timers (idle ~40% opacity, active ~90%)                                                  |
+| Center           | Timing mode pulse (when active)                                                                        |
+| Bottom right     | Toasts (~2.5s TTL), e.g. evidence confirmed                                                            |
+
 
 Transparent page background via `html.overlay-window` CSS so chrome outside HUD elements does not paint.
 
@@ -162,7 +182,11 @@ Defaults use muted slate (`#9aa7b8`) instead of bright white.
 
 ---
 
+
+
 ## Phase 7 — Ghost Filtering (complete)
+
+
 
 ### Scope
 
@@ -176,6 +200,8 @@ Finalize the complete 24-ghost dataset, data-driven evidence rules (including Mi
 - Smudge durations corrected (most 90s; Spirit 180s; Demon 60s).
 - Speeds/notes refreshed from current guides; `forcedEvidence` markers for Goryo, Deogen, Moroi, Hantu, Obake.
 
+
+
 ### Filtering rules (domain only)
 
 Effective evidence = journal evidence ∪ `alwaysPresentsEvidence`.
@@ -184,12 +210,16 @@ Effective evidence = journal evidence ∪ `alwaysPresentsEvidence`.
 2. Eliminated evidence excludes ghosts that effectively present it (so ruling out Orbs eliminates Mimic).
 3. Manual `eliminatedGhostIds` still force-exclude.
 
+
+
 ### UI
 
 - Ghost cards fade/scale when ruled out; positions stay stable (`layout`).
 - Evidence chips reflect confirmed/eliminated investigation state.
 - Mimic shows `Orbs*` chip for always-presented fake orbs.
 - **Exclude / Include** toggles manual elimination (no filtering logic in the component).
+
+
 
 ### Known limitations (Phase 7)
 
@@ -199,7 +229,11 @@ Effective evidence = journal evidence ∪ `alwaysPresentsEvidence`.
 
 ---
 
+
+
 ## Phase 5 — Python Sidecar (complete)
+
+
 
 ### Scope
 
@@ -207,19 +241,25 @@ Launch and supervise exactly one Python sidecar process. Parse JSON stdout, forw
 
 ### Components
 
-| Piece | Role |
-|-------|------|
-| `sidecar/mock_listener.py` | Mock listener (no Vosk yet); emits status + demo commands |
-| `src-tauri/src/sidecar/` | Process manager + JSON protocol |
-| Tauri commands | `get_sidecar_status`, `restart_voice_sidecar`, `stop_voice_sidecar` |
-| `useVoiceSidecarBridge` | Main-window event subscription |
-| `voiceDiagnosticsStore` | Diagnostics / header voice status |
+
+| Piece                      | Role                                                                |
+| -------------------------- | ------------------------------------------------------------------- |
+| `sidecar/mock_listener.py` | Mock listener (no Vosk yet); emits status + demo commands           |
+| `src-tauri/src/sidecar/`   | Process manager + JSON protocol                                     |
+| Tauri commands             | `get_sidecar_status`, `restart_voice_sidecar`, `stop_voice_sidecar` |
+| `useVoiceSidecarBridge`    | Main-window event subscription                                      |
+| `voiceDiagnosticsStore`    | Diagnostics / header voice status                                   |
+
+
+
 
 ### Failure handling
 
 - Missing Python / script → `sidecar_error` + voice `error`; app UI remains usable.
 - Unexpected process exit → error status; **Restart Sidecar** relaunches.
 - Closing Main stops the sidecar before process exit.
+
+
 
 ### Known limitations (Phase 5)
 
@@ -229,7 +269,11 @@ Launch and supervise exactly one Python sidecar process. Parse JSON stdout, forw
 
 ---
 
+
+
 ## Phase 6 — Voice Recognition (complete)
+
+
 
 ### Scope
 
@@ -245,6 +289,8 @@ vosk_listener.py → JSON utterance → Rust event → resolveVoiceCommand → a
 - Phrase → action mapping lives in `src/domain/voice` (tested; UI does not parse speech).
 - Missing model/deps disable voice only; Diagnostics shows setup text.
 
+
+
 ### Known limitations (Phase 6)
 
 - Microphone device picker persists selection and routes the label into the voice sidecar (`--device-name`).
@@ -253,7 +299,11 @@ vosk_listener.py → JSON utterance → Rust event → resolveVoiceCommand → a
 
 ---
 
+
+
 ## Phase 8 — Timers (complete)
+
+
 
 ### Scope
 
@@ -272,11 +322,15 @@ Idle → start → Running (count up) → past threshold → Expired color (stil
 - Re-trigger (UI Start/Stop or voice) while active stops and resets to idle.
 - Snapshot sync carries start timestamps (`smudgeTimer` / `huntTimer`), not tick-by-tick elapsed seconds.
 
+
+
 ### UI
 
 - Investigation Tools: Start/Stop, Reset, duration presets (smudge 60/90/180; hunt 15/20/25).
 - Overlay top-right shows count-up (amber after the end threshold).
 - Voice `trigger smudge` / hunt phrases toggle timers using the configured threshold.
+
+
 
 ### Configuration persistence
 
@@ -289,7 +343,11 @@ Duration presets live in session store and sync Main ↔ Overlay. Disk persisten
 
 ---
 
+
+
 ## Phase 9 — Footstep Timing (complete)
+
+
 
 ### Scope
 
@@ -302,6 +360,8 @@ Timing mode with global hotkey, Space/Numpad 0 footstep capture (up to 5 timesta
 - `calculateFootstepSpeed` / `calculateGhostSpeedMps` — average interval → SPS → × 0.85 m/s, then ÷ ghost speed multiplier for base journal comparison
 - `compareSpeedToPossibleGhosts` — match normalized speed to possible ghosts within ±0.2 m/s of `referenceSpeedMps`
 
+
+
 ### State / sync
 
 - `timingMode`, `timingTimestampsMs` (authoritative); `currentGhostSpeedMps` derived with ghost-speed multiplier
@@ -311,12 +371,16 @@ Timing mode with global hotkey, Space/Numpad 0 footstep capture (up to 5 timesta
 - Completing 5 footsteps turns timing mode off; Overlay shows live speed while timing and fades the held result after the configured delay
 - Snapshot syncs timestamps + settings so Overlay derives the same speed/BPM/matches
 
+
+
 ### Hotkeys
 
 - `Ctrl+Shift+T` / `CommandOrControl+Shift+T` — toggle timing (`tauri-plugin-global-shortcut`)
 - While timing is on: global `Space` and `num0` record footsteps (unregistered when idle so Space is not stolen)
 - Defaults live in `src/config/hotkeys.ts` for Phase 10 configurability
 - Local keydown fallback when the plugin is unavailable
+
+
 
 ### UI
 
@@ -325,6 +389,8 @@ Timing mode with global hotkey, Space/Numpad 0 footstep capture (up to 5 timesta
 - Settings: Ghost Speed Mode radios + Timing Result Overlay hide delay
 - Voice `trigger timer` toggles timing mode
 
+
+
 ### Known limitations (Phase 9)
 
 - Variable-speed ghosts (ranges / null reference) are skipped or matched only on a single reference value.
@@ -332,7 +398,11 @@ Timing mode with global hotkey, Space/Numpad 0 footstep capture (up to 5 timesta
 
 ---
 
+
+
 ## Phase 10 — Persistence (complete)
+
+
 
 ### Scope
 
@@ -345,17 +415,23 @@ Tauri Store persistence for user preferences and window layouts. Active investig
 - `usePreferencesStore` holds hydrated prefs and debounced saves
 - `usePreferencesBootstrap` loads on Main/Overlay startup
 
+
+
 ### Persisted
 
-| Item | Notes |
-|------|--------|
-| Main window geometry | Saved on move/resize/close (includes `maximized`); restored at launch with monitor-aware maximize |
-| Overlay geometry + HUD scale | Geometry optional; HUD scale 75–150% via CSS (`hudScale`); Edit Layout mode for move/resize |
-| Overlay appearance | Accent color, ticker speed, HUD element visibility toggles |
-| Investigation settings | Ghost speed multiplier, evidence difficulty, timing hide delay, timer defaults |
-| Hotkeys | Toggle-timing accelerator (configurable) |
-| Theme | `dark` / `light` (accent overlays from Settings color) |
-| Microphone | `enabled` + device id/label; `enabled: false` stops sidecar ("None" in Settings) |
+
+| Item                         | Notes                                                                                             |
+| ---------------------------- | ------------------------------------------------------------------------------------------------- |
+| Main window geometry         | Saved on move/resize/close (includes `maximized`); restored at launch with monitor-aware maximize |
+| Overlay geometry + HUD scale | Geometry optional; HUD scale 75–150% via CSS (`hudScale`); Edit Layout mode for move/resize       |
+| Overlay appearance           | Accent color, ticker speed, HUD element visibility toggles                                        |
+| Investigation settings       | Ghost speed multiplier, evidence difficulty, timing hide delay, timer defaults                    |
+| Hotkeys                      | Toggle-timing accelerator (configurable)                                                          |
+| Theme                        | `dark` / `light` (accent overlays from Settings color)                                            |
+| Microphone                   | `enabled` + device id/label; `enabled: false` stops sidecar ("None" in Settings)                  |
+
+
+
 
 ### Explicitly not persisted
 
@@ -368,11 +444,15 @@ Evidence, eliminated ghosts, running timers, timing timestamps/results, toasts.
 - Overlay “Reset layout” maximizes the overlay window and clears saved geometry.
 - Overlay stays click-through during play. **Edit overlay layout** (Settings → Windows) temporarily unmaximizes, enables focus/resize handles, then restores click-through on Done/Close.
 - Accent color drives CSS `--accent*` tokens on Main (header/panels/buttons) and overlay ghost text.
-- App icons generated from `assets/app-icon.png` via `npx tauri icon` (see `src-tauri/icons/`, `public/favicon.png`).
+- App icons generated from `assets/app-icon-transparent.png` via `npx tauri icon` (see `src-tauri/icons/`, `public/favicon.png`). Rounded marketing variant: `assets/app-icon-rounded.png`.
 
 ---
 
+
+
 ## Phase 11 — Quality (complete)
+
+
 
 ### Scope
 
@@ -386,11 +466,15 @@ Functional quality: idle CPU, sync/persist races, hydrate hardening, lint/type/t
 - Timer blocks own their clocks so Main tools do not recalculate speed every tick
 - `MotionRoot` sets Framer `reducedMotion="always"` while the document is hidden
 
+
+
 ### Sync / persistence races
 
 - Main waits for preferences `hydrated` before becoming the investigation sync publisher
 - Overlay bootstrap applies geometry/scale only; appearance + investigation settings come from sync
 - Disk writes for appearance / settings / timer defaults only when `isSyncPublisher` (Main)
+
+
 
 ### Harden hydrate + errors
 
@@ -399,20 +483,28 @@ Functional quality: idle CPU, sync/persist races, hydrate hardening, lint/type/t
 - Sync/publish failures report via `reportAppWarning` (diagnostics) without flipping voice status to error
 - Panel-level `ErrorBoundary` isolates render failures on Main; window-level boundary wraps App
 
+
+
 ### Tooling
 
 - `npm run lint` — ESLint flat config (`eslint.config.js`) with typescript-eslint + react-hooks
 - Domain tests cover `resolveEvidenceMap` invalid payloads
 
+
+
 ### Known limitations (Phase 11)
 
 - ~~Nightmare/Insanity forced-evidence filtering remains incomplete~~ → addressed (Evidence Difficulty setting)
-- ~~Variable-speed ghosts still match on a single `referenceSpeedMps` when present~~ → addressed (min/max ranges)
+- ~~Variable-speed ghosts still match on a single~~ `referenceSpeedMps` ~~when present~~ → addressed (min/max ranges)
 - ~~Microphone routing to a selected device is still not wired into the sidecar~~ → addressed
 
 ---
 
+
+
 ## Post-phase backlog resolution
+
+
 
 ### Microphone routing (complete)
 
@@ -420,22 +512,32 @@ Functional quality: idle CPU, sync/persist races, hydrate hardening, lint/type/t
 - Python `--device-name` resolves via sounddevice name match
 - Applied after prefs hydrate and whenever Settings changes the mic
 
+
+
 ### Variable-speed matching (complete)
 
 - `SpeedProfile.minSpeedMps` / `maxSpeedMps` on ranged ghosts
 - `compareSpeedToPossibleGhosts` treats in-range measured speeds as close (with edge tolerance)
 
+
+
 ### Auto-smudge duration (complete)
 
 - When the smudge timer is idle and all possible ghosts share one `smudgeDurationSeconds`, the session preset updates (does not rewrite persisted timer defaults)
+
+
 
 ### Settings focus trap (complete)
 
 - Tab cycles within the dialog; Escape / backdrop still close; initial focus on Close
 
+
+
 ### Still open
 
 - Full Rust-owned mutation path for evidence (Main still mutates locally then publishes)
+
+
 
 ### Distributable packaging & PyInstaller (complete)
 
@@ -455,28 +557,34 @@ Release builds no longer require end users to install Python or download the Vos
 
 **Launch preference** (`src-tauri/src/sidecar/mod.rs`):
 
-1. Packaged `phasmophobia-voice.exe` + absolute `--model` (resource dir / staged / dist candidates)
-2. Else Python `vosk_listener.py` (dev)
+1. **Release builds:** packaged `phasmophobia-voice.exe` + absolute `--model` (resource/staged/dist candidates). Windows `\\?\` prefixes are stripped before spawn — Vosk rejects them.
+2. `tauri dev`**:** Python `vosk_listener.py` preferred (avoids latching onto staged release artifacts under `src-tauri/resources/`)
 3. Else `mock_listener.py` / `PHASMO_VOICE_MOCK=1`
 
-Dev (`npm run tauri dev`) keeps using the Python script when the packaged exe is absent.
+You do not need to delete staged `src-tauri/resources/` files while developing.
 
 ### Evidence difficulty modes (complete)
 
 Settings → Evidence Difficulty (`evidenceDifficulty` in investigation settings, persisted):
 
-| Mode | Journal evidence | Forced-evidence rule |
-|------|------------------|----------------------|
-| Amateur–Professional | 3 | None beyond base confirm/eliminate |
-| Nightmare | 2 | Once ≥2 confirmed, forced evidence must be among them |
-| Insanity | 1 | Forced ghosts may only show forced journal evidence |
-| Apocalypse | 0 | Evidence ignored; Exclude / behavior only |
+
+| Mode                 | Journal evidence | Forced-evidence rule                                  |
+| -------------------- | ---------------- | ----------------------------------------------------- |
+| Amateur–Professional | 3                | None beyond base confirm/eliminate                    |
+| Nightmare            | 2                | Once ≥2 confirmed, forced evidence must be among them |
+| Insanity             | 1                | Forced ghosts may only show forced journal evidence   |
+| Apocalypse           | 0                | Evidence ignored; Exclude / behavior only             |
+
 
 Mimic fake Ghost Orbs remain `alwaysPresentsEvidence` on every mode (effective evidence + Insanity extras do not count as a non-forced journal piece). Apocalypse disables evidence cycling (UI + store + voice confirm).
 
 ---
 
+
+
 ## Phase 12 — Polish (complete)
+
+
 
 ### Scope
 
@@ -490,6 +598,8 @@ User-facing visual/UX refinement only. No domain, sync, or persistence behavior 
 - Light theme now remaps panel tokens (not shell-only)
 - Custom favicon / desktop icons from `assets/app-icon.png` (`npx tauri icon`)
 
+
+
 ### UX / a11y
 
 - Removed always-on “Investigation Active” badge; header status is honest (possible count + voice)
@@ -498,8 +608,11 @@ User-facing visual/UX refinement only. No domain, sync, or persistence behavior 
 - Empty states: ghost panel “No possible ghosts”, diagnostics events, overlay “No matches”
 - Motion: opacity/transform only (removed Framer `layout` where it remained); shorter unified timings; amber reserved for timing urgency
 
-### Known limitations (Phase 12)
+
+
+### Known limitations (Phase 12)  
 
 - Overlay HUD still uses its own glass styling (intentionally quieter than Main)
 - ~~Full focus-trap inside Settings is not implemented~~ → addressed
 - ~~Microphone selection still does not route into the sidecar~~ → addressed
+

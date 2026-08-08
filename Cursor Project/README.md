@@ -103,6 +103,7 @@ npm run tauri dev
 | Command | Description |
 |---------|-------------|
 | `npm run tauri dev` | Full desktop app (Main + Overlay) |
+| `npm run clean` | Wipe build artifacts (dist, Rust target, staged release sidecar) for a fresh dev run |
 | `npm run dev` | Vite only (no Tauri windows) |
 | `npm run typecheck` | TypeScript `--noEmit` |
 | `npm run lint` | ESLint on `src/` |
@@ -133,7 +134,8 @@ Clean PCs: install the setup EXE — no Python/pip/model download required. Smar
 
 | File | Role |
 |------|------|
-| `assets/app-icon.png` | Master square icon (regenerate with `npx tauri icon assets/app-icon.png`) |
+| `assets/app-icon-transparent.png` | Master transparent icon (`npx tauri icon assets/app-icon-transparent.png`) |
+| `assets/app-icon.png` | Same master (alias) |
 | `assets/app-icon-rounded.png` | Rounded marketing / optional variant |
 | `src-tauri/icons/*` | Generated desktop / installer icons |
 | `public/favicon.png` / `favicon.ico` | Webview favicon |

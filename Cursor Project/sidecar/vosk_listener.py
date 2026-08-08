@@ -75,6 +75,16 @@ def default_model_path() -> Path:
     return base / "models" / MODEL_DIR_NAME
 
 
+def normalize_model_path(path: Path) -> Path:
+    """Strip Windows verbatim prefixes that Vosk's native loader cannot open."""
+    text = str(path)
+    if text.startswith("\\\\?\\UNC\\"):
+        text = "\\\\" + text[len("\\\\?\\UNC\\") :]
+    elif text.startswith("\\\\?\\"):
+        text = text[len("\\\\?\\") :]
+    return Path(text)
+
+
 def missing_model_message(model_path: Path) -> str:
     if is_frozen():
         return (
@@ -323,7 +333,9 @@ def main() -> int:
     args = parse_args()
     if args.mock or os.environ.get("PHASMO_VOICE_MOCK") == "1":
         return run_mock_idle()
-    model_path = Path(args.model) if args.model else default_model_path()
+    model_path = normalize_model_path(
+        Path(args.model) if args.model else default_model_path()
+    )
     return run_vosk(model_path, args.device, args.device_name, args.samplerate)
 
 

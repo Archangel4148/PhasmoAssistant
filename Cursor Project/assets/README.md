@@ -2,7 +2,17 @@
 
 | File | Use |
 |------|-----|
-| `app-icon.png` | Master square logo — run `npx tauri icon assets/app-icon.png` to refresh `src-tauri/icons/` and copy favicons into `public/` |
-| `app-icon-rounded.png` | Rounded-edge variant for marketing / store art |
+| `app-icon-transparent.png` | Master icon (transparent) — source for `npx tauri icon` / desktop + favicon |
+| `app-icon.png` | Copy of the transparent master (convenient default path) |
+| `app-icon-rounded.png` | Rounded-square marketing / store art |
+
+Regenerate desktop icons + favicons:
+
+```powershell
+npx tauri icon assets/app-icon-transparent.png
+Copy-Item -Force src-tauri/icons/32x32.png public/favicon.png
+Copy-Item -Force src-tauri/icons/icon.ico public/favicon.ico
+Copy-Item -Force src-tauri/icons/128x128.png public/app-icon.png
+```
 
 Do not commit generated PyInstaller or Vosk model trees; those are produced by `npm run sidecar:prepare`.

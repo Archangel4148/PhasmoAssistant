@@ -328,16 +328,37 @@ fn resolve_sidecar_launch(app: &AppHandle) -> Result<SidecarLaunch, String> {
         });
     }
 
+    // During `tauri dev`, prefer the Python script so local iteration does not
+    // latch onto a staged release exe + debug resource_dir model paths.
+    #[cfg(not(dev))]
     if let Some((exe, model_dir)) = resolve_packaged_exe(app) {
         return Ok(SidecarLaunch::PackagedExe { exe, model_dir });
     }
 
-    let vosk = candidate_scripts(app, "vosk_listener.py");
-    if let Some(path) = vosk.into_iter().find(|path| path.is_file()) {
-        return Ok(SidecarLaunch::PythonScript {
-            script: path,
-            using_mock: false,
-        });
+    #[cfg(dev)]
+    {
+        // Still allow an explicit packaged smoke-test if no Python script exists.
+        let vosk = candidate_scripts(app, "vosk_listener.py");
+        if let Some(path) = vosk.into_iter().find(|path| path.is_file()) {
+            return Ok(SidecarLaunch::PythonScript {
+                script: path,
+                using_mock: false,
+            });
+        }
+        if let Some((exe, model_dir)) = resolve_packaged_exe(app) {
+            return Ok(SidecarLaunch::PackagedExe { exe, model_dir });
+        }
+    }
+
+    #[cfg(not(dev))]
+    {
+        let vosk = candidate_scripts(app, "vosk_listener.py");
+        if let Some(path) = vosk.into_iter().find(|path| path.is_file()) {
+            return Ok(SidecarLaunch::PythonScript {
+                script: path,
+                using_mock: false,
+            });
+        }
     }
 
     let path = candidate_scripts(app, "mock_listener.py")
@@ -422,13 +443,14 @@ fn candidate_packaged_exes(app: &AppHandle) -> Vec<PathBuf> {
 fn resolve_model_dir_for_exe(app: &AppHandle, exe: &Path) -> Option<PathBuf> {
     let mut candidates: Vec<PathBuf> = Vec::new();
 
-    if let Ok(resource) = app.path().resource_dir() {
-        candidates.push(resource.join("models").join(MODEL_DIR_NAME));
-    }
-
-    // Staged next to resources/phasmophobia-voice → resources/models/...
+    // Prefer model next to the packaged onedir (resources/models/...) before
+    // resource_dir(), which in `tauri dev` is target/debug.
     if let Some(parent) = exe.parent().and_then(|p| p.parent()) {
         candidates.push(parent.join("models").join(MODEL_DIR_NAME));
+    }
+
+    if let Ok(resource) = app.path().resource_dir() {
+        candidates.push(resource.join("models").join(MODEL_DIR_NAME));
     }
 
     let mut from_manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -460,7 +482,24 @@ fn resolve_model_dir_for_exe(app: &AppHandle, exe: &Path) -> Option<PathBuf> {
         );
     }
 
-    candidates.into_iter().find(|path| path.is_dir())
+    candidates
+        .into_iter()
+        .find(|path| path.join("am").join("final.mdl").is_file())
+}
+
+/// Vosk's native loader rejects Windows verbatim (`\\?\`) prefixes.
+fn path_for_sidecar_arg(path: &Path) -> PathBuf {
+    let Some(raw) = path.to_str() else {
+        return path.to_path_buf();
+    };
+    let stripped = raw
+        .strip_prefix(r"\\?\UNC\")
+        .map(|rest| format!(r"\\{rest}"))
+        .or_else(|| raw.strip_prefix(r"\\?\").map(|rest| rest.to_string()));
+    match stripped {
+        Some(value) => PathBuf::from(value),
+        None => path.to_path_buf(),
+    }
 }
 
 fn candidate_scripts(app: &AppHandle, file_name: &str) -> Vec<PathBuf> {
@@ -490,9 +529,9 @@ fn build_sidecar_command(
 ) -> Result<Command, String> {
     match launch {
         SidecarLaunch::PackagedExe { exe, model_dir } => {
-            let mut command = Command::new(exe);
+            let mut command = Command::new(path_for_sidecar_arg(exe));
             command.arg("--model");
-            command.arg(model_dir);
+            command.arg(path_for_sidecar_arg(model_dir));
             if let Some(name) = device_name {
                 command.arg("--device-name");
                 command.arg(name);
