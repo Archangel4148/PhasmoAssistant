@@ -103,6 +103,14 @@ export function isTimerActive(timer: InvestigationTimer): boolean {
   return timer.startedAtMs !== null;
 }
 
+/** True only before the end threshold — useful for high-frequency UI clocks. */
+export function isTimerRunning(
+  timer: InvestigationTimer,
+  nowMs: number,
+): boolean {
+  return getTimerPhase(timer, nowMs) === "running";
+}
+
 function normalizeDurationSeconds(value: number): number {
   if (!Number.isFinite(value)) {
     return DEFAULT_SMUDGE_SECONDS;

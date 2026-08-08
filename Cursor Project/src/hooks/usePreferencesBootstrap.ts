@@ -13,9 +13,9 @@ import {
 } from "../state/preferencesStore";
 
 /**
- * Load Tauri Store preferences once per window, apply theme/geometry, and
- * hydrate investigation preference fields. Investigation evidence/timers are
- * intentionally not restored.
+ * Load Tauri Store preferences once per window.
+ * Main applies preference fields into the investigation store (then sync publishes).
+ * Overlay only restores geometry/scale locally; appearance/settings come from sync.
  */
 export function usePreferencesBootstrap(role: "main" | "overlay"): void {
   useEffect(() => {
@@ -32,52 +32,50 @@ export function usePreferencesBootstrap(role: "main" | "overlay"): void {
       usePreferencesStore.getState().hydrate(preferences);
       applyThemeToDocument(preferences.theme);
 
-      const investigation = useInvestigationStore.getState();
-      investigation.setOverlayAppearance(preferences.overlayAppearance);
-      investigation.setInvestigationSettings(preferences.investigationSettings);
-      investigation.setSmudgeDurationSeconds(preferences.smudgeDurationSeconds);
-      investigation.setHuntCooldownDurationSeconds(
-        preferences.huntCooldownDurationSeconds,
-      );
+      if (role === "main") {
+        const investigation = useInvestigationStore.getState();
+        investigation.setOverlayAppearance(preferences.overlayAppearance);
+        investigation.setInvestigationSettings(preferences.investigationSettings);
+        investigation.setSmudgeDurationSeconds(preferences.smudgeDurationSeconds);
+        investigation.setHuntCooldownDurationSeconds(
+          preferences.huntCooldownDurationSeconds,
+        );
 
-      if (role === "main" && preferences.mainWindow) {
-        await applyWindowGeometry(preferences.mainWindow);
-      }
-
-      if (role === "overlay") {
-        if (preferences.overlay.geometry) {
-          await unmaximizeCurrentWindow();
-          await applyWindowGeometry(preferences.overlay.geometry);
+        if (preferences.mainWindow) {
+          await applyWindowGeometry(preferences.mainWindow);
         }
       }
 
-      if (role === "main" || role === "overlay") {
-        try {
-          const window = getCurrentWindow();
-          const queueGeometrySave = (): void => {
-            if (saveGeometryTimer) {
-              clearTimeout(saveGeometryTimer);
-            }
-            saveGeometryTimer = setTimeout(() => {
-              void (async () => {
-                const geometry = await readCurrentWindowGeometry();
-                if (!geometry || cancelled) {
-                  return;
-                }
-                if (role === "main") {
-                  usePreferencesStore.getState().setMainWindowGeometry(geometry);
-                } else {
-                  usePreferencesStore.getState().setOverlayLayout({ geometry });
-                }
-              })();
-            }, 400);
-          };
+      if (role === "overlay" && preferences.overlay.geometry) {
+        await unmaximizeCurrentWindow();
+        await applyWindowGeometry(preferences.overlay.geometry);
+      }
 
-          unlisteners.push(await window.onMoved(queueGeometrySave));
-          unlisteners.push(await window.onResized(queueGeometrySave));
-        } catch (error: unknown) {
-          console.warn("Window geometry persistence unavailable", error);
-        }
+      try {
+        const window = getCurrentWindow();
+        const queueGeometrySave = (): void => {
+          if (saveGeometryTimer) {
+            clearTimeout(saveGeometryTimer);
+          }
+          saveGeometryTimer = setTimeout(() => {
+            void (async () => {
+              const geometry = await readCurrentWindowGeometry();
+              if (!geometry || cancelled) {
+                return;
+              }
+              if (role === "main") {
+                usePreferencesStore.getState().setMainWindowGeometry(geometry);
+              } else {
+                usePreferencesStore.getState().setOverlayLayout({ geometry });
+              }
+            })();
+          }, 400);
+        };
+
+        unlisteners.push(await window.onMoved(queueGeometrySave));
+        unlisteners.push(await window.onResized(queueGeometrySave));
+      } catch (error: unknown) {
+        console.warn("Window geometry persistence unavailable", error);
       }
     }
 

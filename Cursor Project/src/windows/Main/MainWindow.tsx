@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { DiagnosticsPanel } from "../../components/DiagnosticsPanel";
+import { ErrorBoundary } from "../../components/ErrorBoundary";
 import { EvidencePanel } from "../../components/EvidencePanel";
 import { GhostPanel } from "../../components/GhostPanel";
 import { Header } from "../../components/Header";
@@ -17,8 +18,8 @@ import { useVoiceDiagnosticsStore } from "../../state/voiceDiagnosticsStore";
 import type { DiagnosticsSnapshot } from "../../types/diagnostics";
 
 export function MainWindow() {
-  useMainInvestigationSync();
   usePreferencesBootstrap("main");
+  useMainInvestigationSync();
   useTimingHotkeys(true);
   useVoiceSidecarBridge();
 
@@ -96,30 +97,38 @@ export function MainWindow() {
       >
         <div className="grid flex-1 gap-4 xl:grid-cols-12">
           <div className="flex flex-col gap-4 xl:col-span-3">
-            <EvidencePanel
-              evidence={evidenceEntries}
-              onEvidenceCycle={cycleEvidence}
-            />
-            <InvestigationToolsPanel />
+            <ErrorBoundary fallbackTitle="Evidence panel error">
+              <EvidencePanel
+                evidence={evidenceEntries}
+                onEvidenceCycle={cycleEvidence}
+              />
+            </ErrorBoundary>
+            <ErrorBoundary fallbackTitle="Tools panel error">
+              <InvestigationToolsPanel />
+            </ErrorBoundary>
           </div>
 
           <div className="xl:col-span-6">
-            <GhostPanel
-              ghosts={ghosts}
-              evidenceEntries={evidenceEntries}
-              onToggleGhostEliminated={toggleGhostEliminated}
-            />
+            <ErrorBoundary fallbackTitle="Ghost panel error">
+              <GhostPanel
+                ghosts={ghosts}
+                evidenceEntries={evidenceEntries}
+                onToggleGhostEliminated={toggleGhostEliminated}
+              />
+            </ErrorBoundary>
           </div>
 
           <div className="xl:col-span-3">
-            <DiagnosticsPanel
-              diagnostics={diagnostics}
-              usingMock={usingMock}
-              restartPending={restartPending}
-              onRestartSidecar={() => {
-                void handleRestartSidecar();
-              }}
-            />
+            <ErrorBoundary fallbackTitle="Diagnostics panel error">
+              <DiagnosticsPanel
+                diagnostics={diagnostics}
+                usingMock={usingMock}
+                restartPending={restartPending}
+                onRestartSidecar={() => {
+                  void handleRestartSidecar();
+                }}
+              />
+            </ErrorBoundary>
           </div>
         </div>
       </motion.main>

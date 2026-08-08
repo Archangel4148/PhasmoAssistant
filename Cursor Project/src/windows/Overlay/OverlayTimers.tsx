@@ -48,9 +48,10 @@ function TimerLine({
 }
 
 export function OverlayTimers({ smudgeTimer, huntTimer }: OverlayTimersProps) {
+  // Keep ticking while either stopwatch is started (including past-threshold count-up).
   const clockNeeded =
     isTimerActive(smudgeTimer) || isTimerActive(huntTimer);
-  const nowMs = useClock(clockNeeded);
+  const nowMs = useClock(clockNeeded, 1000);
   const anyActive =
     isTimerActive(smudgeTimer) || isTimerActive(huntTimer);
 

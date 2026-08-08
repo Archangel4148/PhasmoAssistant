@@ -1,46 +1,36 @@
 import { useEffect, useState } from "react";
 
 /**
- * Local display clock. Does not mutate timer state — remaining time is derived
- * from absolute deadlines elsewhere. Re-syncs when the window regains focus.
- *
- * Always reads `Date.now()` when enabled so the first frame after a timer starts
- * is accurate (interval state alone would be stale until the first tick).
+ * Local display clock for deriving elapsed/remaining UI from absolute timestamps.
+ * Does not mutate store state. Pauses while the document is hidden.
  */
-export function useClock(enabled: boolean, intervalMs = 200): number {
-  const [, setTick] = useState(0);
+export function useClock(enabled: boolean, intervalMs = 1000): number {
+  const [nowMs, setNowMs] = useState(() => Date.now());
 
   useEffect(() => {
     if (!enabled) {
       return;
     }
 
-    setTick((value) => value + 1);
-    const id = window.setInterval(() => {
-      setTick((value) => value + 1);
-    }, intervalMs);
+    const tick = (): void => {
+      if (document.visibilityState === "hidden") {
+        return;
+      }
+      setNowMs(Date.now());
+    };
+
+    const immediateId = window.setTimeout(tick, 0);
+    const intervalId = window.setInterval(tick, intervalMs);
+    document.addEventListener("visibilitychange", tick);
+    window.addEventListener("focus", tick);
 
     return () => {
-      window.clearInterval(id);
+      window.clearTimeout(immediateId);
+      window.clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", tick);
+      window.removeEventListener("focus", tick);
     };
   }, [enabled, intervalMs]);
 
-  useEffect(() => {
-    if (!enabled) {
-      return;
-    }
-
-    const sync = (): void => {
-      setTick((value) => value + 1);
-    };
-
-    document.addEventListener("visibilitychange", sync);
-    window.addEventListener("focus", sync);
-    return () => {
-      document.removeEventListener("visibilitychange", sync);
-      window.removeEventListener("focus", sync);
-    };
-  }, [enabled]);
-
-  return Date.now();
+  return nowMs;
 }

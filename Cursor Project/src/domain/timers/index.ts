@@ -9,6 +9,7 @@ export {
   getElapsedSeconds,
   getTimerPhase,
   isTimerActive,
+  isTimerRunning,
   resetTimer,
   setTimerDuration,
   startTimer,

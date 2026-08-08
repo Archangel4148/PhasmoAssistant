@@ -7,6 +7,7 @@ import {
 import {
   createInitialEvidenceMap,
   cycleEvidenceEntry,
+  resolveEvidenceMap,
   setEvidenceEntryState,
 } from "./evidenceState";
 
@@ -39,5 +40,31 @@ describe("evidence map helpers", () => {
 
     expect(getConfirmedEvidenceIds(evidence)).toEqual(["emf5"]);
     expect(getEliminatedEvidenceIds(evidence)).toEqual(["dots"]);
+  });
+});
+
+describe("resolveEvidenceMap", () => {
+  it("returns a fresh initial map for null/invalid roots", () => {
+    expect(resolveEvidenceMap(null).emf5.state).toBe("unknown");
+    expect(resolveEvidenceMap([]).emf5.state).toBe("unknown");
+    expect(resolveEvidenceMap("bad").emf5.state).toBe("unknown");
+  });
+
+  it("keeps valid entries and ignores unknown keys / bad shapes", () => {
+    const resolved = resolveEvidenceMap({
+      emf5: { id: "emf5", state: "confirmed", voiceConfirmed: true },
+      spiritBox: { state: "nope" },
+      notEvidence: { state: "confirmed" },
+      dots: null,
+    });
+
+    expect(resolved.emf5).toEqual({
+      id: "emf5",
+      state: "confirmed",
+      voiceConfirmed: true,
+    });
+    expect(resolved.spiritBox.state).toBe("unknown");
+    expect(resolved.dots.state).toBe("unknown");
+    expect("notEvidence" in resolved).toBe(false);
   });
 });

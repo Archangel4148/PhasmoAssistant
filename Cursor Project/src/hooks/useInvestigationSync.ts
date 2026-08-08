@@ -5,6 +5,8 @@ import {
   subscribeInvestigationSnapshot,
 } from "../services/investigationSync";
 import { useInvestigationStore } from "../state/investigationStore";
+import { usePreferencesStore } from "../state/preferencesStore";
+import { useVoiceDiagnosticsStore } from "../state/voiceDiagnosticsStore";
 import type { InvestigationSnapshot } from "../types/sync";
 
 function toSnapshotFromStore(): InvestigationSnapshot {
@@ -23,19 +25,49 @@ function toSnapshotFromStore(): InvestigationSnapshot {
   };
 }
 
+function reportSyncError(message: string): void {
+  useVoiceDiagnosticsStore.getState().reportAppWarning(message);
+}
+
 /** Main window: publish local mutations to Rust for Overlay consumers. */
 export function useMainInvestigationSync(): void {
   useEffect(() => {
-    useInvestigationStore.getState().setSyncPublisher(true);
+    let cancelled = false;
+    let publishing = false;
 
-    void publishInvestigationSnapshot(toSnapshotFromStore()).catch(
-      (error: unknown) => {
-        console.error("Failed to publish initial investigation snapshot", error);
-      },
-    );
+    const enablePublisher = (): void => {
+      if (cancelled || publishing) {
+        return;
+      }
+      if (!usePreferencesStore.getState().hydrated) {
+        return;
+      }
+
+      publishing = true;
+      useInvestigationStore.getState().setSyncPublisher(true);
+      void publishInvestigationSnapshot(toSnapshotFromStore()).catch(
+        (error: unknown) => {
+          console.error("Failed to publish initial investigation snapshot", error);
+          reportSyncError(
+            "Failed to sync investigation state to the overlay. UI remains usable.",
+          );
+        },
+      );
+    };
+
+    enablePublisher();
+    const unsubscribe = usePreferencesStore.subscribe((state) => {
+      if (state.hydrated) {
+        enablePublisher();
+      }
+    });
 
     return () => {
-      useInvestigationStore.getState().setSyncPublisher(false);
+      cancelled = true;
+      unsubscribe();
+      if (publishing) {
+        useInvestigationStore.getState().setSyncPublisher(false);
+      }
     };
   }, []);
 }
@@ -62,6 +94,9 @@ export function useOverlayInvestigationSync(): void {
         }
       } catch (error: unknown) {
         console.error("Failed to sync overlay investigation state", error);
+        reportSyncError(
+          "Overlay lost investigation sync. Open the Main window or restart the app.",
+        );
       }
     }
 

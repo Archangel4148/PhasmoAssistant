@@ -3,6 +3,7 @@ export {
   createInitialEvidenceMap,
   cycleEvidenceEntry,
   evidenceMapToEntries,
+  resolveEvidenceMap,
   setEvidenceEntryState,
   type EvidenceMap,
 } from "./evidenceState";

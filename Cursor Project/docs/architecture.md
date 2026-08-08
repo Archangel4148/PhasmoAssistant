@@ -247,7 +247,7 @@ vosk_listener.py → JSON utterance → Rust event → resolveVoiceCommand → a
 
 ### Known limitations (Phase 6)
 
-- Microphone device picker not implemented (Phase 10 settings).
+- Microphone device picker persists selection; sidecar still uses system default input.
 - PyInstaller packaging still deferred.
 - Small English Vosk model must be downloaded manually into `sidecar/models/`.
 
@@ -366,3 +366,43 @@ Evidence, eliminated ghosts, running timers, timing timestamps/results, toasts.
 - Selected microphone is stored but the voice sidecar still opens the system default input.
 - Light theme only adjusts the page shell; many panels remain dark-styled.
 - Overlay “Reset layout” maximizes the overlay window and clears saved geometry.
+
+---
+
+## Phase 11 — Quality (complete)
+
+### Scope
+
+Functional quality: idle CPU, sync/persist races, hydrate hardening, lint/type/test gates, recoverable failure isolation. No architectural rewrites.
+
+### Performance
+
+- `useClock` defaults to 1s ticks and skips updates while `document.hidden`
+- Overlay timing fade uses a single `setTimeout` (no forever-polling clock)
+- Overlay toasts schedule prune via timeout instead of a 200ms poll
+- Timer blocks own their clocks so Main tools do not recalculate speed every tick
+- `MotionRoot` sets Framer `reducedMotion="always"` while the document is hidden
+
+### Sync / persistence races
+
+- Main waits for preferences `hydrated` before becoming the investigation sync publisher
+- Overlay bootstrap applies geometry/scale only; appearance + investigation settings come from sync
+- Disk writes for appearance / settings / timer defaults only when `isSyncPublisher` (Main)
+
+### Harden hydrate + errors
+
+- `resolveEvidenceMap` validates per-evidence entries (domain helper; single implementation)
+- Snapshot hydrate validates eliminated IDs, timestamps, and toast shapes
+- Sync/publish failures report via `reportAppWarning` (diagnostics) without flipping voice status to error
+- Panel-level `ErrorBoundary` isolates render failures on Main; window-level boundary wraps App
+
+### Tooling
+
+- `npm run lint` — ESLint flat config (`eslint.config.js`) with typescript-eslint + react-hooks
+- Domain tests cover `resolveEvidenceMap` invalid payloads
+
+### Known limitations (Phase 11)
+
+- Microphone routing to a selected device is still not wired into the sidecar
+- Nightmare/Insanity forced-evidence filtering remains incomplete
+- Variable-speed ghosts still match on a single `referenceSpeedMps` when present

@@ -32,19 +32,18 @@ export function useTimingHotkeys(enabled: boolean): void {
   const toggleTimingHotkey = usePreferencesStore(
     (state) => state.hotkeys.toggleTiming,
   );
-  const footstepHotkeys = usePreferencesStore(
-    (state) => state.hotkeys.recordFootstep,
+  const footstepHotkeysKey = usePreferencesStore((state) =>
+    state.hotkeys.recordFootstep.join("\0"),
   );
   const [usingGlobal, setUsingGlobal] = useState(false);
   const usingGlobalRef = useRef(false);
 
   useEffect(() => {
     if (!enabled) {
-      usingGlobalRef.current = false;
-      setUsingGlobal(false);
       return;
     }
 
+    const footstepHotkeys = footstepHotkeysKey.split("\0").filter(Boolean);
     let cancelled = false;
 
     function onKeyDown(event: KeyboardEvent): void {
@@ -108,13 +107,15 @@ export function useTimingHotkeys(enabled: boolean): void {
       cancelled = true;
       window.removeEventListener("keydown", onKeyDown);
       usingGlobalRef.current = false;
-      setUsingGlobal(false);
+      queueMicrotask(() => {
+        setUsingGlobal(false);
+      });
       void safeUnregister(toggleTimingHotkey);
       for (const key of footstepHotkeys) {
         void safeUnregister(key);
       }
     };
-  }, [enabled, toggleTimingHotkey, footstepHotkeys]);
+  }, [enabled, toggleTimingHotkey, footstepHotkeysKey]);
 
   useEffect(() => {
     if (!enabled || !usingGlobal) {
@@ -122,7 +123,7 @@ export function useTimingHotkeys(enabled: boolean): void {
     }
 
     let cancelled = false;
-    const keys = [...footstepHotkeys];
+    const keys = footstepHotkeysKey.split("\0").filter(Boolean);
 
     void (async () => {
       for (const key of keys) {
@@ -150,5 +151,5 @@ export function useTimingHotkeys(enabled: boolean): void {
         void safeUnregister(key);
       }
     };
-  }, [enabled, usingGlobal, timingMode, footstepHotkeys]);
+  }, [enabled, usingGlobal, timingMode, footstepHotkeysKey]);
 }

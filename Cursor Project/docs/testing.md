@@ -251,6 +251,32 @@ Manual verification:
 - [x] Active investigation state does not persist by default
 - [x] Invalid stored data falls back safely
 
+---
+
+## Phase 11 checks
+
+```powershell
+npm run typecheck
+npm run lint
+npm run test
+npm run build
+cd src-tauri; cargo check
+```
+
+Manual verification:
+
+- Idle Main + Overlay: CPU stays low with no active timers/timing (hidden windows quieter)
+- Corrupt investigation sync payloads do not crash Overlay (evidence/toasts fall back)
+- Kill/restart voice sidecar from Diagnostics — investigation UI remains usable
+- Force a sync failure (overlay without main briefly) — warning appears in diagnostics, voice status not falsely set to error
+- Open Settings repeatedly — drafts reset cleanly; no lint/type regressions
+
+### Acceptance criteria (Phase 11)
+
+- [x] No known type, lint, build, or test errors remain
+- [x] Recoverable failures do not destabilize unrelated features
+- [x] Idle clocks/animations pause or slow when the document is hidden
+
 ## Automated tests
 
 Domain logic tests live alongside implementation:
@@ -262,9 +288,11 @@ Domain logic tests live alongside implementation:
 - `src/domain/voice/normalizeCommand.test.ts`
 - `src/types/persistedPreferences.test.ts`
 
-Run all tests:
+Run all checks:
 
 ```powershell
+npm run typecheck
+npm run lint
 npm run test
 ```
 

@@ -20,6 +20,8 @@ interface VoiceDiagnosticsState {
   applyVoiceStatus: (payload: VoiceStatusPayload) => void;
   applyVoiceCommand: (payload: VoiceCommandPayload) => void;
   applySidecarError: (payload: SidecarErrorPayload) => void;
+  /** Non-voice recoverable issue (sync/persist) — does not flip voice status. */
+  reportAppWarning: (message: string) => void;
   pushEvent: (label: string) => void;
 }
 
@@ -96,5 +98,10 @@ export const useVoiceDiagnosticsStore = create<VoiceDiagnosticsState>((set, get)
       voiceStatus: "error",
     });
     get().pushEvent(`Sidecar error → ${payload.message}`);
+  },
+
+  reportAppWarning: (message) => {
+    set({ lastError: message });
+    get().pushEvent(`Warning → ${message}`);
   },
 }));

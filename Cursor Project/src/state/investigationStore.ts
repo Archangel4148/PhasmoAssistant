@@ -8,6 +8,7 @@ import {
   createInitialEvidenceMap,
   cycleEvidenceEntry,
   evidenceMapToEntries,
+  resolveEvidenceMap,
   setEvidenceEntryState,
   type EvidenceMap,
 } from "../domain/evidence";
@@ -43,6 +44,7 @@ import {
 } from "../types/overlayAppearance";
 import { publishInvestigationSnapshot } from "../services/investigationSync";
 import { usePreferencesStore } from "./preferencesStore";
+import { useVoiceDiagnosticsStore } from "./voiceDiagnosticsStore";
 
 interface InvestigationView {
   evidence: EvidenceMap;
@@ -79,6 +81,7 @@ interface InvestigationStoreState extends InvestigationView {
   toggleTimingMode: () => void;
   recordFootstep: (nowMs?: number) => void;
   resetTiming: () => void;
+  pruneExpiredToasts: (ttlMs?: number) => void;
   startSmudgeTimer: () => void;
   resetSmudgeTimer: () => void;
   setSmudgeDurationSeconds: (durationSeconds: number) => void;
@@ -218,6 +221,11 @@ function publishIfNeeded(state: InvestigationStoreState): void {
 
   void publishInvestigationSnapshot(toSnapshot(state)).catch((error: unknown) => {
     console.error("Failed to publish investigation snapshot", error);
+    useVoiceDiagnosticsStore
+      .getState()
+      .reportAppWarning(
+        "Failed to sync investigation state to the overlay. UI remains usable.",
+      );
   });
 }
 
@@ -236,17 +244,36 @@ function createEvidenceToast(
   };
 }
 
-function resolveEvidenceMap(value: unknown): EvidenceMap {
-  if (
-    value !== null &&
-    typeof value === "object" &&
-    !Array.isArray(value) &&
-    Object.keys(value).length > 0
-  ) {
-    return value as EvidenceMap;
+function resolveEliminatedGhostIds(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.filter(
+    (id): id is string => typeof id === "string" && id.length > 0,
+  );
+}
+
+function resolveToasts(value: unknown): OverlayToast[] {
+  if (!Array.isArray(value)) {
+    return [];
   }
 
-  return createInitialEvidenceMap();
+  const now = Date.now();
+  return value
+    .filter((entry): entry is OverlayToast => {
+      if (!entry || typeof entry !== "object") {
+        return false;
+      }
+      const toast = entry as Record<string, unknown>;
+      return (
+        typeof toast.id === "string" &&
+        typeof toast.message === "string" &&
+        typeof toast.createdAtMs === "number" &&
+        Number.isFinite(toast.createdAtMs)
+      );
+    })
+    .filter((toast) => now - toast.createdAtMs < 10_000)
+    .slice(-8);
 }
 
 function trimToasts(toasts: OverlayToast[]): OverlayToast[] {
@@ -292,17 +319,18 @@ export const useInvestigationStore = create<InvestigationStoreState>((set, get) 
     const settings = resolveInvestigationSettings(snapshot.settings);
 
     set(
-      buildInvestigationView(evidence, snapshot.eliminatedGhostIds ?? [], {
-        timingMode: snapshot.timingMode ?? false,
+      buildInvestigationView(evidence, resolveEliminatedGhostIds(snapshot.eliminatedGhostIds), {
+        timingMode: snapshot.timingMode === true,
         timingTimestampsMs,
         timingResultCompletedAtMs:
-          typeof snapshot.timingResultCompletedAtMs === "number"
+          typeof snapshot.timingResultCompletedAtMs === "number" &&
+          Number.isFinite(snapshot.timingResultCompletedAtMs)
             ? snapshot.timingResultCompletedAtMs
             : null,
         smudgeTimer: resolveTimer(snapshot.smudgeTimer, DEFAULT_SMUDGE_SECONDS),
         huntTimer: resolveTimer(snapshot.huntTimer, DEFAULT_HUNT_COOLDOWN_SECONDS),
         currentGhostSpeedMps: deriveSpeedMps(timingTimestampsMs, settings),
-        toasts: snapshot.toasts ?? [],
+        toasts: resolveToasts(snapshot.toasts),
         overlayAppearance: resolveOverlayAppearance(snapshot.overlayAppearance),
         settings,
       }),
@@ -365,7 +393,10 @@ export const useInvestigationStore = create<InvestigationStoreState>((set, get) 
       isSyncPublisher: previous.isSyncPublisher,
     });
     publishIfNeeded(get());
-    usePreferencesStore.getState().setOverlayAppearancePrefs(nextAppearance);
+    // Only the Main publisher owns disk persistence for appearance/settings.
+    if (previous.isSyncPublisher) {
+      usePreferencesStore.getState().setOverlayAppearancePrefs(nextAppearance);
+    }
   },
 
   setInvestigationSettings: (patch) => {
@@ -384,7 +415,9 @@ export const useInvestigationStore = create<InvestigationStoreState>((set, get) 
       isSyncPublisher: previous.isSyncPublisher,
     });
     publishIfNeeded(get());
-    usePreferencesStore.getState().setInvestigationSettingsPrefs(settings);
+    if (previous.isSyncPublisher) {
+      usePreferencesStore.getState().setInvestigationSettingsPrefs(settings);
+    }
   },
 
   applyVoiceAction: (action) => {
@@ -551,6 +584,22 @@ export const useInvestigationStore = create<InvestigationStoreState>((set, get) 
     publishIfNeeded(get());
   },
 
+  pruneExpiredToasts: (ttlMs = 2500) => {
+    const previous = get();
+    const cutoff = Date.now() - ttlMs;
+    const toasts = previous.toasts.filter(
+      (toast) => toast.createdAtMs >= cutoff,
+    );
+    if (toasts.length === previous.toasts.length) {
+      return;
+    }
+    set({
+      toasts,
+      isSyncPublisher: previous.isSyncPublisher,
+    });
+    publishIfNeeded(get());
+  },
+
   startSmudgeTimer: () => {
     const previous = get();
     const wasActive = previous.smudgeTimer.startedAtMs !== null;
@@ -583,9 +632,11 @@ export const useInvestigationStore = create<InvestigationStoreState>((set, get) 
       isSyncPublisher: previous.isSyncPublisher,
     });
     publishIfNeeded(get());
-    usePreferencesStore.getState().setTimerDefaults({
-      smudgeDurationSeconds: durationSeconds,
-    });
+    if (previous.isSyncPublisher) {
+      usePreferencesStore.getState().setTimerDefaults({
+        smudgeDurationSeconds: durationSeconds,
+      });
+    }
   },
 
   startHuntCooldownTimer: () => {
@@ -622,9 +673,11 @@ export const useInvestigationStore = create<InvestigationStoreState>((set, get) 
       isSyncPublisher: previous.isSyncPublisher,
     });
     publishIfNeeded(get());
-    usePreferencesStore.getState().setTimerDefaults({
-      huntCooldownDurationSeconds: durationSeconds,
-    });
+    if (previous.isSyncPublisher) {
+      usePreferencesStore.getState().setTimerDefaults({
+        huntCooldownDurationSeconds: durationSeconds,
+      });
+    }
   },
 
   resetInvestigation: () => {

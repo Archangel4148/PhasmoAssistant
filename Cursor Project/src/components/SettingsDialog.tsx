@@ -78,13 +78,15 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
   const [hexDraft, setHexDraft] = useState(appearance.ghostTextColor);
   const [toggleHotkeyDraft, setToggleHotkeyDraft] = useState(hotkeys.toggleTiming);
   const [micOptions, setMicOptions] = useState<MicOption[]>([]);
+  const [draftSourceOpen, setDraftSourceOpen] = useState(open);
 
-  useEffect(() => {
+  if (open !== draftSourceOpen) {
+    setDraftSourceOpen(open);
     if (open) {
       setHexDraft(appearance.ghostTextColor);
       setToggleHotkeyDraft(hotkeys.toggleTiming);
     }
-  }, [open, appearance.ghostTextColor, hotkeys.toggleTiming]);
+  }
 
   useEffect(() => {
     if (!open) {

@@ -1,3 +1,4 @@
+import { useEffect, useMemo, useState } from "react";
 import { OverlayGhostList } from "./OverlayGhostList";
 import { OverlayTimers } from "./OverlayTimers";
 import { OverlayTimingIndicator } from "./OverlayTimingIndicator";
@@ -6,7 +7,6 @@ import {
   calculateFootstepSpeed,
   compareSpeedToPossibleGhosts,
 } from "../../domain/speed";
-import { useClock } from "../../hooks/useClock";
 import { useOverlayInvestigationSync } from "../../hooks/useInvestigationSync";
 import { usePreferencesBootstrap } from "../../hooks/usePreferencesBootstrap";
 import { useInvestigationStore } from "../../state/investigationStore";
@@ -36,27 +36,60 @@ export function OverlayWindow() {
   const settings = useInvestigationStore((state) => state.settings);
   const overlayScale = usePreferencesStore((state) => state.overlay.scale);
 
-  const speedResult = calculateFootstepSpeed(timingTimestampsMs, {
-    ghostSpeedMultiplier: settings.ghostSpeedMultiplier,
-  });
-  const closeMatches = compareSpeedToPossibleGhosts(
-    currentGhostSpeedMps,
-    ghosts,
-  ).filter((match) => match.isClose);
+  const speedResult = useMemo(
+    () =>
+      calculateFootstepSpeed(timingTimestampsMs, {
+        ghostSpeedMultiplier: settings.ghostSpeedMultiplier,
+      }),
+    [timingTimestampsMs, settings.ghostSpeedMultiplier],
+  );
+  const closeMatches = useMemo(
+    () =>
+      compareSpeedToPossibleGhosts(currentGhostSpeedMps, ghosts).filter(
+        (match) => match.isClose,
+      ),
+    [currentGhostSpeedMps, ghosts],
+  );
 
   const hasResult =
     timingTimestampsMs.length > 0 || currentGhostSpeedMps !== null;
-  const watchingHide =
+  const [hiddenForCompletedAt, setHiddenForCompletedAt] = useState<
+    number | null
+  >(null);
+
+  useEffect(() => {
+    if (
+      timingMode ||
+      timingResultCompletedAtMs === null ||
+      !hasResult
+    ) {
+      return;
+    }
+
+    const hideAfterMs = settings.timingResultHideAfterSeconds * 1000;
+    const remaining = timingResultCompletedAtMs + hideAfterMs - Date.now();
+    const completedAt = timingResultCompletedAtMs;
+    const id = window.setTimeout(
+      () => {
+        setHiddenForCompletedAt(completedAt);
+      },
+      Math.max(0, remaining),
+    );
+    return () => {
+      window.clearTimeout(id);
+    };
+  }, [
+    timingMode,
+    timingResultCompletedAtMs,
+    hasResult,
+    settings.timingResultHideAfterSeconds,
+  ]);
+
+  const resultHidden =
     !timingMode &&
     timingResultCompletedAtMs !== null &&
-    hasResult;
-  const nowMs = useClock(watchingHide);
-  const hideAfterMs = settings.timingResultHideAfterSeconds * 1000;
-  const fadedOut =
-    watchingHide &&
-    timingResultCompletedAtMs !== null &&
-    nowMs >= timingResultCompletedAtMs + hideAfterMs;
-  const timingVisible = timingMode || (hasResult && !fadedOut);
+    hiddenForCompletedAt === timingResultCompletedAtMs;
+  const timingVisible = timingMode || (hasResult && !resultHidden);
 
   return (
     <div className="pointer-events-none relative h-screen w-screen overflow-hidden bg-transparent text-zinc-100">

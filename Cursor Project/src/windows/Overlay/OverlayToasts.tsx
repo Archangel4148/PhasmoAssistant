@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import { useInvestigationStore } from "../../state/investigationStore";
 import type { OverlayToast } from "../../types/sync";
 
 interface OverlayToastsProps {
@@ -9,23 +10,33 @@ interface OverlayToastsProps {
 const TOAST_TTL_MS = 2500;
 
 export function OverlayToasts({ toasts }: OverlayToastsProps) {
-  const [now, setNow] = useState(() => Date.now());
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  const pruneExpiredToasts = useInvestigationStore(
+    (state) => state.pruneExpiredToasts,
+  );
 
   useEffect(() => {
     if (toasts.length === 0) {
       return;
     }
 
-    const intervalId = window.setInterval(() => {
-      setNow(Date.now());
-    }, 200);
+    const nextExpiry = Math.min(
+      ...toasts.map((toast) => toast.createdAtMs + TOAST_TTL_MS),
+    );
+    const delay = Math.max(16, nextExpiry - Date.now());
+    const id = window.setTimeout(() => {
+      setNowMs(Date.now());
+      pruneExpiredToasts(TOAST_TTL_MS);
+    }, delay);
 
     return () => {
-      window.clearInterval(intervalId);
+      window.clearTimeout(id);
     };
-  }, [toasts.length]);
+  }, [toasts, pruneExpiredToasts]);
 
-  const visible = toasts.filter((toast) => now - toast.createdAtMs < TOAST_TTL_MS);
+  const visible = toasts.filter(
+    (toast) => nowMs - toast.createdAtMs < TOAST_TTL_MS,
+  );
 
   return (
     <div className="flex w-64 flex-col items-end gap-2">

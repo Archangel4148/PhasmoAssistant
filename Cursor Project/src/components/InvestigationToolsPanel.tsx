@@ -20,7 +20,6 @@ import { StatusBadge } from "./StatusBadge";
 interface TimerBlockProps {
   title: string;
   timer: InvestigationTimer;
-  nowMs: number;
   presets: readonly number[];
   onToggle: () => void;
   onReset: () => void;
@@ -30,12 +29,12 @@ interface TimerBlockProps {
 function TimerBlock({
   title,
   timer,
-  nowMs,
   presets,
   onToggle,
   onReset,
   onDurationChange,
 }: TimerBlockProps) {
+  const nowMs = useClock(isTimerActive(timer), 1000);
   const phase = getTimerPhase(timer, nowMs);
   const elapsedSeconds = getElapsedSeconds(timer, nowMs);
   const active = isTimerActive(timer);
@@ -149,10 +148,6 @@ export function InvestigationToolsPanel() {
     (state) => state.setHuntCooldownDurationSeconds,
   );
   const settings = useInvestigationStore((state) => state.settings);
-
-  const clockNeeded =
-    isTimerActive(smudgeTimer) || isTimerActive(huntTimer);
-  const nowMs = useClock(clockNeeded);
 
   const speedResult = calculateFootstepSpeed(timingTimestampsMs, {
     ghostSpeedMultiplier: settings.ghostSpeedMultiplier,
@@ -269,7 +264,6 @@ export function InvestigationToolsPanel() {
         <TimerBlock
           title="Smudge Timer"
           timer={smudgeTimer}
-          nowMs={nowMs}
           presets={SMUDGE_DURATION_PRESETS}
           onToggle={startSmudgeTimer}
           onReset={resetSmudgeTimer}
@@ -279,7 +273,6 @@ export function InvestigationToolsPanel() {
         <TimerBlock
           title="Hunt Cooldown"
           timer={huntTimer}
-          nowMs={nowMs}
           presets={HUNT_COOLDOWN_DURATION_PRESETS}
           onToggle={startHuntCooldownTimer}
           onReset={resetHuntCooldownTimer}
