@@ -16,18 +16,32 @@ export function GhostPanel({
   const possibleCount = ghosts.filter((ghost) => ghost.isPossible).length;
 
   return (
-    <section className="flex h-full min-h-[320px] flex-col rounded-xl border border-zinc-800/80 bg-zinc-900/50 p-4 shadow-lg backdrop-blur-sm">
-      <div className="mb-4 flex items-center justify-between gap-2">
-        <div>
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-300">
-            Ghosts
-          </h2>
-          <p className="text-xs text-zinc-500">
-            {possibleCount} of {ghosts.length} remain possible · Exclude toggles
-            manual elimination
+    <section className="panel flex h-full min-h-[320px] flex-col">
+      <div className="mb-4">
+        <h2 className="panel-title">Ghosts</h2>
+        <p className="panel-subtitle">
+          {possibleCount} of {ghosts.length} remain possible · Exclude toggles
+          manual elimination
+        </p>
+      </div>
+
+      {possibleCount === 0 ? (
+        <div className="inset-block flex flex-1 flex-col items-center justify-center px-4 py-8 text-center">
+          <p
+            className="text-sm font-medium"
+            style={{ color: "var(--text-secondary)" }}
+          >
+            No possible ghosts
+          </p>
+          <p
+            className="mt-1 max-w-sm text-xs leading-relaxed"
+            style={{ color: "var(--text-faint)" }}
+          >
+            Evidence conflicts or manual excludes removed every option. Clear
+            evidence or include ghosts to continue filtering.
           </p>
         </div>
-      </div>
+      ) : null}
 
       <div className="min-h-0 flex-1 overflow-y-auto pr-1">
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">

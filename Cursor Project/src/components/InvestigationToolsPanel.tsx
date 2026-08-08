@@ -45,14 +45,17 @@ function TimerBlock({
     <div
       className={`rounded-lg border p-3 ${
         isRunning
-          ? "border-violet-500/30 bg-violet-500/5"
+          ? "border-[var(--accent-border)] bg-[var(--accent-soft)]"
           : isExpired
-            ? "border-amber-500/30 bg-amber-500/5"
-            : "border-zinc-800/80 bg-zinc-900/40"
+            ? "border-[color-mix(in_srgb,var(--warning)_30%,transparent)] bg-[color-mix(in_srgb,var(--warning)_8%,transparent)]"
+            : "border-[var(--panel-border)] bg-[color-mix(in_srgb,var(--panel-bg-solid)_40%,transparent)]"
       }`}
     >
       <div className="flex items-center justify-between gap-2">
-        <p className="text-xs font-medium uppercase tracking-wide text-zinc-400">
+        <p
+          className="text-xs font-medium uppercase tracking-[0.08em]"
+          style={{ color: "var(--text-muted)" }}
+        >
           {title}
         </p>
         {isRunning && <StatusBadge tone="accent">Running</StatusBadge>}
@@ -60,18 +63,19 @@ function TimerBlock({
       </div>
 
       <p
-        className={`mt-2 font-mono text-2xl tabular-nums ${
-          isRunning
-            ? "text-violet-200"
+        className="mt-2 font-mono text-2xl tabular-nums"
+        style={{
+          color: isRunning
+            ? "var(--accent-strong)"
             : isExpired
-              ? "text-amber-200"
-              : "text-zinc-500"
-        }`}
+              ? "var(--warning)"
+              : "var(--text-faint)",
+        }}
       >
         {active ? formatDuration(elapsedSeconds ?? 0) : "00:00"}
       </p>
 
-      <p className="mt-1 text-[11px] text-zinc-500">
+      <p className="mt-1 text-[11px]" style={{ color: "var(--text-faint)" }}>
         End at {formatDuration(timer.durationSeconds)}
       </p>
 
@@ -83,10 +87,10 @@ function TimerBlock({
               key={seconds}
               type="button"
               onClick={() => onDurationChange(seconds)}
-              className={`rounded-md border px-2 py-1 text-[11px] tabular-nums transition-colors ${
+              className={`focus-ring rounded-md border px-2 py-1 text-[11px] tabular-nums transition-colors ${
                 selected
-                  ? "border-violet-500/50 bg-violet-500/15 text-violet-100"
-                  : "border-zinc-700/80 bg-zinc-800/40 text-zinc-400 hover:border-zinc-600 hover:text-zinc-200"
+                  ? "border-[var(--accent-border)] bg-[var(--accent-soft)] text-[var(--accent-strong)]"
+                  : "btn-ghost"
               }`}
             >
               {formatDuration(seconds)}
@@ -99,10 +103,8 @@ function TimerBlock({
         <button
           type="button"
           onClick={onToggle}
-          className={`flex-1 rounded-md border px-2 py-1.5 text-xs transition-colors ${
-            active
-              ? "border-zinc-600/80 bg-zinc-800/70 text-zinc-100 hover:border-zinc-500"
-              : "border-violet-500/40 bg-violet-500/15 text-violet-100 hover:bg-violet-500/25"
+          className={`focus-ring flex-1 px-2 py-1.5 text-xs ${
+            active ? "btn-ghost" : "btn-accent"
           }`}
         >
           {active ? "Stop" : "Start"}
@@ -111,7 +113,7 @@ function TimerBlock({
           type="button"
           onClick={onReset}
           disabled={!active}
-          className="rounded-md border border-zinc-700/80 bg-zinc-800/60 px-2 py-1.5 text-xs text-zinc-300 transition-colors hover:border-zinc-600 hover:text-zinc-100 disabled:cursor-not-allowed disabled:opacity-40"
+          className="btn-ghost focus-ring px-2 py-1.5 text-xs"
         >
           Reset
         </button>
@@ -165,12 +167,10 @@ export function InvestigationToolsPanel() {
     speedResult.observedMetersPerSecond !== null;
 
   return (
-    <section className="rounded-xl border border-zinc-800/80 bg-zinc-900/50 p-4 shadow-lg backdrop-blur-sm">
+    <section className="panel">
       <div className="mb-4">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-300">
-          Investigation Tools
-        </h2>
-        <p className="text-xs text-zinc-500">
+        <h2 className="panel-title">Investigation Tools</h2>
+        <p className="panel-subtitle">
           Footstep timing, smudge, and hunt cooldown
         </p>
       </div>
@@ -179,20 +179,23 @@ export function InvestigationToolsPanel() {
         <div
           className={`rounded-lg border p-3 ${
             timingMode
-              ? "border-amber-500/40 bg-amber-500/5"
+              ? "border-[color-mix(in_srgb,var(--warning)_40%,transparent)] bg-[color-mix(in_srgb,var(--warning)_8%,transparent)]"
               : sessionComplete
-                ? "border-amber-500/25 bg-amber-500/5"
-                : "border-zinc-800/80 bg-zinc-900/40"
+                ? "border-[color-mix(in_srgb,var(--warning)_25%,transparent)] bg-[color-mix(in_srgb,var(--warning)_6%,transparent)]"
+                : "border-[var(--panel-border)] bg-[color-mix(in_srgb,var(--panel-bg-solid)_40%,transparent)]"
           }`}
         >
           <div className="flex items-center justify-between gap-2">
-            <p className="text-xs font-medium uppercase tracking-wide text-zinc-400">
+            <p
+              className="text-xs font-medium uppercase tracking-[0.08em]"
+              style={{ color: "var(--text-muted)" }}
+            >
               Footstep Speed
             </p>
             {timingMode ? (
               <motion.span
-                animate={{ opacity: [0.5, 1, 0.5] }}
-                transition={{ duration: 1.5, repeat: Infinity }}
+                animate={{ opacity: [0.55, 1, 0.55] }}
+                transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
               >
                 <StatusBadge tone="warning">Timing Mode</StatusBadge>
               </motion.span>
@@ -203,26 +206,32 @@ export function InvestigationToolsPanel() {
             )}
           </div>
 
-          <p className="mt-2 font-mono text-2xl tabular-nums text-zinc-100">
+          <p
+            className="mt-2 font-mono text-2xl tabular-nums"
+            style={{ color: "var(--text-primary)" }}
+          >
             {currentGhostSpeedMps !== null
               ? formatSpeedMps(currentGhostSpeedMps)
               : "—"}
           </p>
 
           {speedResult.beatsPerMinute !== null && (
-            <p className="mt-0.5 font-mono text-sm tabular-nums text-amber-200/90">
+            <p
+              className="mt-0.5 font-mono text-sm tabular-nums"
+              style={{ color: "var(--warning)" }}
+            >
               {formatBpm(speedResult.beatsPerMinute)}
             </p>
           )}
 
           {showObserved && (
-            <p className="mt-0.5 text-[11px] text-zinc-500">
+            <p className="mt-0.5 text-[11px]" style={{ color: "var(--text-faint)" }}>
               Observed {formatSpeedMps(speedResult.observedMetersPerSecond!)} at{" "}
               {Math.round(settings.ghostSpeedMultiplier * 100)}% ghost speed
             </p>
           )}
 
-          <p className="mt-1 text-[11px] text-zinc-500">
+          <p className="mt-1 text-[11px]" style={{ color: "var(--text-faint)" }}>
             Steps {stepCount}/{MAX_FOOTSTEP_TIMESTAMPS}
             {timingMode
               ? " · Space / Numpad 0"
@@ -232,7 +241,10 @@ export function InvestigationToolsPanel() {
           </p>
 
           {speedMatches.length > 0 && (
-            <p className="mt-2 text-[11px] leading-relaxed text-amber-200/90">
+            <p
+              className="mt-2 text-[11px] leading-relaxed"
+              style={{ color: "var(--warning)" }}
+            >
               Close to{" "}
               {speedMatches.map((match) => match.ghostName).join(", ")}
             </p>
@@ -242,10 +254,10 @@ export function InvestigationToolsPanel() {
             <button
               type="button"
               onClick={toggleTimingMode}
-              className={`flex-1 rounded-md border px-2 py-1.5 text-xs transition-colors ${
+              className={`focus-ring flex-1 px-2 py-1.5 text-xs ${
                 timingMode
-                  ? "border-zinc-600/80 bg-zinc-800/70 text-zinc-100 hover:border-zinc-500"
-                  : "border-amber-500/40 bg-amber-500/15 text-amber-100 hover:bg-amber-500/25"
+                  ? "btn-ghost"
+                  : "rounded-md border border-[color-mix(in_srgb,var(--warning)_40%,transparent)] bg-[color-mix(in_srgb,var(--warning)_14%,transparent)] text-[var(--warning)] transition-colors hover:bg-[color-mix(in_srgb,var(--warning)_22%,transparent)]"
               }`}
             >
               {timingMode ? "Stop Timing" : "Start Timing"}
@@ -254,7 +266,7 @@ export function InvestigationToolsPanel() {
               type="button"
               onClick={resetTiming}
               disabled={!canResetTiming}
-              className="rounded-md border border-zinc-700/80 bg-zinc-800/60 px-2 py-1.5 text-xs text-zinc-300 transition-colors hover:border-zinc-600 hover:text-zinc-100 disabled:cursor-not-allowed disabled:opacity-40"
+              className="btn-ghost focus-ring px-2 py-1.5 text-xs"
             >
               Reset
             </button>

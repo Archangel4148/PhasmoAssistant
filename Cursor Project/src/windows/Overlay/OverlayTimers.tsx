@@ -37,7 +37,7 @@ function TimerLine({
             : "text-zinc-400"
       }`}
     >
-      <span className="text-[11px] uppercase tracking-wide opacity-80">
+      <span className="text-[11px] uppercase tracking-[0.08em] opacity-80">
         {label}
       </span>
       <span className="min-w-[3.25rem] text-right">

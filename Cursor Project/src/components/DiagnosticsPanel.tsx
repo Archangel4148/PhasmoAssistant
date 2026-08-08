@@ -38,8 +38,15 @@ function DiagnosticRow({
 }) {
   return (
     <div className="flex items-center justify-between gap-3 py-1.5">
-      <span className="text-xs text-zinc-500">{label}</span>
-      <span className="text-right text-xs text-zinc-300">{value}</span>
+      <span className="text-xs" style={{ color: "var(--text-faint)" }}>
+        {label}
+      </span>
+      <span
+        className="text-right text-xs"
+        style={{ color: "var(--text-secondary)" }}
+      >
+        {value}
+      </span>
     </div>
   );
 }
@@ -54,13 +61,11 @@ export function DiagnosticsPanel({
     diagnostics;
 
   return (
-    <section className="flex h-full flex-col rounded-xl border border-zinc-800/80 bg-zinc-900/50 p-4 shadow-lg backdrop-blur-sm">
+    <section className="panel flex h-full flex-col">
       <div className="mb-4 flex items-start justify-between gap-2">
         <div>
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-300">
-            Diagnostics
-          </h2>
-          <p className="text-xs text-zinc-500">
+          <h2 className="panel-title">Diagnostics</h2>
+          <p className="panel-subtitle">
             Voice pipeline and sidecar status
             {usingMock ? " · mock listener" : " · vosk"}
           </p>
@@ -70,14 +75,15 @@ export function DiagnosticsPanel({
             type="button"
             onClick={onRestartSidecar}
             disabled={restartPending}
-            className="rounded-md border border-zinc-700/80 bg-zinc-800/70 px-2.5 py-1 text-[11px] font-medium text-zinc-300 hover:border-zinc-500 hover:text-zinc-100 disabled:cursor-not-allowed disabled:opacity-50"
+            aria-busy={restartPending}
+            className="btn-ghost focus-ring px-2.5 py-1 text-[11px] font-medium"
           >
             {restartPending ? "Restarting…" : "Restart Sidecar"}
           </button>
         )}
       </div>
 
-      <div className="divide-y divide-zinc-800/80 rounded-lg border border-zinc-800/60 bg-zinc-950/40 px-3">
+      <div className="inset-block divide-y divide-[var(--panel-border)] px-3">
         <DiagnosticRow
           label="Sidecar"
           value={
@@ -105,33 +111,57 @@ export function DiagnosticsPanel({
       </div>
 
       {diagnostics.lastError && (
-        <div className="mt-3 rounded-lg border border-red-500/30 bg-red-500/5 p-3">
-          <p className="text-[11px] font-medium uppercase tracking-wide text-red-400">
+        <div
+          className="mt-3 rounded-lg border p-3"
+          style={{
+            borderColor: "color-mix(in srgb, var(--danger) 35%, transparent)",
+            background: "color-mix(in srgb, var(--danger) 8%, transparent)",
+          }}
+          role="status"
+        >
+          <p
+            className="text-[11px] font-medium uppercase tracking-[0.08em]"
+            style={{ color: "var(--danger)" }}
+          >
             Last Error
           </p>
-          <p className="mt-1 text-xs leading-relaxed text-red-300/90">
+          <p
+            className="mt-1 text-xs leading-relaxed"
+            style={{ color: "color-mix(in srgb, var(--danger) 90%, white)" }}
+          >
             {diagnostics.lastError}
           </p>
         </div>
       )}
 
       <div className="mt-4 min-h-0 flex-1">
-        <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-zinc-500">
+        <p
+          className="mb-2 text-[11px] font-medium uppercase tracking-[0.08em]"
+          style={{ color: "var(--text-faint)" }}
+        >
           Recent Events
         </p>
         {diagnostics.recentVoiceEvents.length === 0 ? (
-          <p className="text-xs text-zinc-600">No sidecar events yet.</p>
+          <div className="inset-block px-3 py-4">
+            <p className="text-xs" style={{ color: "var(--text-faint)" }}>
+              No sidecar events yet. Voice status changes and commands will
+              appear here.
+            </p>
+          </div>
         ) : (
           <ul className="max-h-48 space-y-2 overflow-y-auto pr-1">
             {diagnostics.recentVoiceEvents.map((event) => (
-              <li
-                key={event.id}
-                className="rounded-md border border-zinc-800/60 bg-zinc-950/50 px-2.5 py-2"
-              >
-                <p className="font-mono text-[10px] text-zinc-600">
+              <li key={event.id} className="inset-block px-2.5 py-2">
+                <p
+                  className="font-mono text-[10px]"
+                  style={{ color: "var(--text-faint)" }}
+                >
                   {event.timestamp}
                 </p>
-                <p className="mt-0.5 text-xs leading-relaxed text-zinc-400">
+                <p
+                  className="mt-0.5 text-xs leading-relaxed"
+                  style={{ color: "var(--text-muted)" }}
+                >
                   {event.label}
                 </p>
               </li>

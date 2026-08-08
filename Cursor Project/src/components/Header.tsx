@@ -28,18 +28,31 @@ export function Header({
   onOpenSettings,
 }: HeaderProps) {
   return (
-    <header className="border-b border-zinc-800/80 bg-zinc-900/70 px-4 py-3 backdrop-blur-md sm:px-6">
+    <header
+      className="border-b px-4 py-3 backdrop-blur-md sm:px-6"
+      style={{
+        borderColor: "var(--panel-border)",
+        background: "var(--app-bg-elevated)",
+      }}
+    >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="truncate text-base font-semibold tracking-tight text-zinc-100 sm:text-lg">
+          <h1
+            className="truncate text-base font-semibold tracking-tight sm:text-lg"
+            style={{ color: "var(--text-primary)" }}
+          >
             Phasmophobia Companion
           </h1>
-          <p className="text-xs text-zinc-500 sm:text-sm">
+          <p className="text-xs sm:text-sm" style={{ color: "var(--text-faint)" }}>
             Investigation control panel
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+        <div
+          className="flex flex-wrap items-center gap-2 sm:gap-3"
+          aria-live="polite"
+          aria-atomic="true"
+        >
           <StatusBadge tone="accent">
             {possibleGhostCount} possible
           </StatusBadge>
@@ -49,14 +62,13 @@ export function Header({
             {VOICE_STATUS_LABEL[voiceStatus]}
           </StatusBadge>
 
-          <StatusBadge tone="success">Investigation Active</StatusBadge>
-
           <motion.button
             type="button"
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
+            transition={{ duration: 0.15 }}
             onClick={onOpenSettings}
-            className="rounded-lg border border-zinc-700/80 bg-zinc-800/80 px-3 py-1.5 text-xs font-medium text-zinc-200 transition-colors hover:border-zinc-600 hover:bg-zinc-800"
+            className="btn-ghost focus-ring px-3 py-1.5 text-xs font-medium"
           >
             Settings
           </motion.button>

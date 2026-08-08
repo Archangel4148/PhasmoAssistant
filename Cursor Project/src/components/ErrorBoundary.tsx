@@ -36,7 +36,7 @@ export class ErrorBoundary extends Component<Props, State> {
           <p className="mt-1 text-rose-200/80">{this.state.errorMessage}</p>
           <button
             type="button"
-            className="mt-3 rounded border border-rose-400/40 px-2 py-1 text-xs hover:bg-rose-900/50"
+            className="focus-ring mt-3 rounded border border-rose-400/40 px-2 py-1 text-xs hover:bg-rose-900/50"
             onClick={() => this.setState({ errorMessage: null })}
           >
             Try again

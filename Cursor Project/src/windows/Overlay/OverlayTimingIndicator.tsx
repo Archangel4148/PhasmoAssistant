@@ -38,19 +38,19 @@ export function OverlayTimingIndicator({
           initial={{ opacity: 0, y: -4 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -4 }}
-          transition={{ duration: 0.65, ease: "easeOut" }}
+          transition={{ duration: 0.22, ease: "easeOut" }}
           className="min-w-[10.5rem] rounded-lg border border-amber-400/40 bg-black/50 px-3 py-2 backdrop-blur-sm"
         >
           {active ? (
             <motion.p
               animate={{ opacity: [0.55, 1, 0.55] }}
-              transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
-              className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-200"
+              transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
+              className="text-[11px] font-semibold uppercase tracking-[0.08em] text-amber-200"
             >
               Timing
             </motion.p>
           ) : (
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-400">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-zinc-400">
               Speed Result
             </p>
           )}

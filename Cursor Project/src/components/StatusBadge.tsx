@@ -3,11 +3,15 @@ import type { ReactNode } from "react";
 type StatusTone = "neutral" | "success" | "warning" | "error" | "accent";
 
 const TONE_STYLES: Record<StatusTone, string> = {
-  neutral: "border-zinc-700/60 bg-zinc-800/60 text-zinc-300",
-  success: "border-emerald-500/30 bg-emerald-500/10 text-emerald-300",
-  warning: "border-amber-500/30 bg-amber-500/10 text-amber-300",
-  error: "border-red-500/30 bg-red-500/10 text-red-300",
-  accent: "border-violet-500/30 bg-violet-500/10 text-violet-300",
+  neutral:
+    "border-[color-mix(in_srgb,var(--text-faint)_45%,transparent)] bg-[color-mix(in_srgb,var(--panel-bg-solid)_55%,transparent)] text-[var(--text-muted)]",
+  success:
+    "border-[color-mix(in_srgb,var(--success)_35%,transparent)] bg-[color-mix(in_srgb,var(--success)_12%,transparent)] text-[var(--success)]",
+  warning:
+    "border-[color-mix(in_srgb,var(--warning)_35%,transparent)] bg-[color-mix(in_srgb,var(--warning)_12%,transparent)] text-[var(--warning)]",
+  error:
+    "border-[color-mix(in_srgb,var(--danger)_35%,transparent)] bg-[color-mix(in_srgb,var(--danger)_12%,transparent)] text-[var(--danger)]",
+  accent: "accent-chip",
 };
 
 interface StatusBadgeProps {

@@ -364,7 +364,7 @@ Evidence, eliminated ghosts, running timers, timing timestamps/results, toasts.
 ### Known limitations (Phase 10)
 
 - Selected microphone is stored but the voice sidecar still opens the system default input.
-- Light theme only adjusts the page shell; many panels remain dark-styled.
+- Light theme panel remapping was completed in Phase 12 (earlier shell-only limitation resolved).
 - Overlay “Reset layout” maximizes the overlay window and clears saved geometry.
 
 ---
@@ -406,3 +406,33 @@ Functional quality: idle CPU, sync/persist races, hydrate hardening, lint/type/t
 - Microphone routing to a selected device is still not wired into the sidecar
 - Nightmare/Insanity forced-evidence filtering remains incomplete
 - Variable-speed ghosts still match on a single `referenceSpeedMps` when present
+
+---
+
+## Phase 12 — Polish (complete)
+
+### Scope
+
+User-facing visual/UX refinement only. No domain, sync, or persistence behavior changes.
+
+### Visual system
+
+- CSS design tokens in `src/styles/globals.css` (surfaces, text, mist/steel accent, semantic success/warning/danger)
+- Offline fonts: Source Sans 3 Variable + IBM Plex Mono (bundled via `@fontsource`)
+- Shared chrome: `.panel`, `.panel-title`, `.btn-ghost`, `.btn-accent`, `.focus-ring`, `.accent-chip`
+- Light theme now remaps panel tokens (not shell-only)
+- Custom favicon (`public/favicon.svg`)
+
+### UX / a11y
+
+- Removed always-on “Investigation Active” badge; header status is honest (possible count + voice)
+- Focus rings and clearer labels on evidence cycle / ghost exclude
+- Settings: Escape to close, `aria-modal`, mic enumeration loading/error copy
+- Empty states: ghost panel “No possible ghosts”, diagnostics events, overlay “No matches”
+- Motion: opacity/transform only (removed Framer `layout` where it remained); shorter unified timings; amber reserved for timing urgency
+
+### Known limitations (Phase 12)
+
+- Overlay HUD still uses its own glass styling (intentionally quieter than Main)
+- Full focus-trap inside Settings is not implemented (Escape + backdrop close are)
+- Microphone selection still does not route into the sidecar

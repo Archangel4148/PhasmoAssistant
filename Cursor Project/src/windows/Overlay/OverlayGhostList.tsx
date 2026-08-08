@@ -34,7 +34,6 @@ function GhostNameRow({
           {ghosts.map((ghost, index) => (
             <motion.span
               key={`${idPrefix}-${ghost.id}`}
-              layout
               initial={{ opacity: 0, y: -4 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 4 }}
@@ -118,7 +117,7 @@ export function OverlayGhostList({
   return (
     <div className="flex max-w-full items-center gap-3 rounded-lg border border-white/8 bg-black/35 px-3 py-1.5 backdrop-blur-sm">
       <p
-        className="shrink-0 text-[10px] font-medium uppercase tracking-[0.16em]"
+        className="shrink-0 text-[10px] font-medium uppercase tracking-[0.08em]"
         style={{ color: softenHexColor(textColor, 0.28) }}
       >
         Possible
@@ -142,7 +141,7 @@ export function OverlayGhostList({
         <div ref={viewportRef} className="overflow-hidden">
           {possible.length === 0 ? (
             <p className="text-sm" style={{ color: separatorColor }}>
-              None
+              No matches
             </p>
           ) : overflowing ? (
             <motion.div

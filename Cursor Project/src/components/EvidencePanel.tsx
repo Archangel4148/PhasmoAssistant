@@ -12,22 +12,36 @@ const STATE_STYLES: Record<
   { container: string; indicator: string; label: string }
 > = {
   unknown: {
-    container: "border-zinc-800/80 bg-zinc-900/40 hover:border-zinc-700/80",
-    indicator: "bg-zinc-600",
+    container:
+      "border-[var(--panel-border)] bg-[color-mix(in_srgb,var(--panel-bg-solid)_40%,transparent)] hover:border-[color-mix(in_srgb,var(--text-faint)_55%,transparent)]",
+    indicator: "bg-[var(--text-faint)]",
     label: "Unknown",
   },
   confirmed: {
     container:
-      "border-emerald-500/40 bg-emerald-500/10 hover:border-emerald-500/60",
-    indicator: "bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.5)]",
+      "border-[color-mix(in_srgb,var(--success)_40%,transparent)] bg-[color-mix(in_srgb,var(--success)_10%,transparent)] hover:border-[color-mix(in_srgb,var(--success)_60%,transparent)]",
+    indicator:
+      "bg-[var(--success)] shadow-[0_0_8px_color-mix(in_srgb,var(--success)_50%,transparent)]",
     label: "Confirmed",
   },
   eliminated: {
-    container: "border-red-500/20 bg-red-500/5 opacity-60 hover:opacity-75",
-    indicator: "bg-red-400/70",
+    container:
+      "border-[color-mix(in_srgb,var(--danger)_22%,transparent)] bg-[color-mix(in_srgb,var(--danger)_6%,transparent)] opacity-60 hover:opacity-75",
+    indicator: "bg-[color-mix(in_srgb,var(--danger)_70%,transparent)]",
     label: "Eliminated",
   },
 };
+
+function nextStateLabel(state: EvidenceState): string {
+  switch (state) {
+    case "unknown":
+      return "confirmed";
+    case "confirmed":
+      return "eliminated";
+    case "eliminated":
+      return "unknown";
+  }
+}
 
 function EvidenceTile({
   entry,
@@ -42,16 +56,24 @@ function EvidenceTile({
   return (
     <motion.button
       type="button"
-      layout
+      whileTap={{ scale: 0.985 }}
+      transition={{ duration: 0.15 }}
       onClick={() => onCycle(entry.id)}
-      className={`relative flex w-full flex-col gap-2 rounded-lg border p-3 text-left transition-colors ${styles.container} cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/50`}
+      aria-label={`${definition.label}: ${styles.label}. Activate to mark ${nextStateLabel(entry.state)}.`}
+      className={`focus-ring relative flex w-full cursor-pointer flex-col gap-2 rounded-lg border p-3 text-left transition-colors ${styles.container}`}
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="truncate text-sm font-medium text-zinc-100">
+          <p
+            className="truncate text-sm font-medium"
+            style={{ color: "var(--text-primary)" }}
+          >
             {definition.label}
           </p>
-          <p className="text-[11px] uppercase tracking-wide text-zinc-500">
+          <p
+            className="text-[11px] uppercase tracking-[0.08em]"
+            style={{ color: "var(--text-faint)" }}
+          >
             {styles.label}
           </p>
         </div>
@@ -62,7 +84,12 @@ function EvidenceTile({
       </div>
 
       {entry.voiceConfirmed && (
-        <p className="text-[11px] text-emerald-400/90">✓ Voice confirmed</p>
+        <p
+          className="text-[11px]"
+          style={{ color: "var(--success)" }}
+        >
+          ✓ Voice confirmed
+        </p>
       )}
     </motion.button>
   );
@@ -75,17 +102,13 @@ export function EvidencePanel({ evidence, onEvidenceCycle }: EvidencePanelProps)
   ).length;
 
   return (
-    <section className="rounded-xl border border-zinc-800/80 bg-zinc-900/50 p-4 shadow-lg backdrop-blur-sm">
-      <div className="mb-4 flex items-center justify-between gap-2">
-        <div>
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-300">
-            Evidence
-          </h2>
-          <p className="text-xs text-zinc-500">
-            Click to cycle · {confirmedCount} confirmed · {eliminatedCount}{" "}
-            eliminated
-          </p>
-        </div>
+    <section className="panel">
+      <div className="mb-4">
+        <h2 className="panel-title">Evidence</h2>
+        <p className="panel-subtitle">
+          Click to cycle · {confirmedCount} confirmed · {eliminatedCount}{" "}
+          eliminated
+        </p>
       </div>
 
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">

@@ -25,9 +25,11 @@ function evidenceTone(
 
 const CHIP_STYLES = {
   confirmed:
-    "border-emerald-500/40 bg-emerald-500/15 text-emerald-300",
-  eliminated: "border-red-500/30 bg-red-500/10 text-red-300/80 line-through",
-  neutral: "border-zinc-700/60 bg-zinc-900/60 text-zinc-400",
+    "border-[color-mix(in_srgb,var(--success)_40%,transparent)] bg-[color-mix(in_srgb,var(--success)_14%,transparent)] text-[var(--success)]",
+  eliminated:
+    "border-[color-mix(in_srgb,var(--danger)_30%,transparent)] bg-[color-mix(in_srgb,var(--danger)_10%,transparent)] text-[color-mix(in_srgb,var(--danger)_80%,transparent)] line-through",
+  neutral:
+    "border-[var(--panel-border)] bg-[color-mix(in_srgb,var(--panel-bg-solid)_55%,transparent)] text-[var(--text-muted)]",
 } as const;
 
 export function GhostCard({
@@ -39,24 +41,26 @@ export function GhostCard({
 
   return (
     <motion.article
-      layout
       initial={false}
       animate={{
-        opacity: ghost.isPossible ? 1 : 0.2,
+        opacity: ghost.isPossible ? 1 : 0.22,
         scale: ghost.isPossible ? 1 : 0.98,
       }}
-      transition={{ duration: 0.28, ease: "easeOut" }}
+      transition={{ duration: 0.22, ease: "easeOut" }}
       className={`rounded-lg border p-3 ${
         ghost.isPossible
-          ? "border-zinc-700/80 bg-zinc-800/60"
-          : "border-zinc-800/60 bg-zinc-900/30"
+          ? "border-[color-mix(in_srgb,var(--text-faint)_50%,transparent)] bg-[color-mix(in_srgb,var(--panel-bg-solid)_70%,transparent)]"
+          : "border-[var(--panel-border)] bg-[color-mix(in_srgb,var(--panel-bg-solid)_35%,transparent)]"
       }`}
     >
       <div className="flex items-start justify-between gap-2">
         <h3
-          className={`text-sm font-medium ${
-            ghost.isPossible ? "text-zinc-100" : "text-zinc-500"
-          }`}
+          className="text-sm font-medium"
+          style={{
+            color: ghost.isPossible
+              ? "var(--text-primary)"
+              : "var(--text-faint)",
+          }}
         >
           {ghost.name}
         </h3>
@@ -69,7 +73,7 @@ export function GhostCard({
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -4 }}
                 transition={{ duration: 0.2 }}
-                className="rounded bg-violet-500/15 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-violet-300"
+                className="accent-chip rounded px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-[0.08em]"
               >
                 Possible
               </motion.span>
@@ -78,16 +82,17 @@ export function GhostCard({
           <button
             type="button"
             onClick={() => onToggleEliminated(ghost.id)}
-            className={`rounded border px-1.5 py-0.5 text-[10px] font-medium transition-colors ${
+            aria-pressed={ghost.isManuallyEliminated}
+            aria-label={
               ghost.isManuallyEliminated
-                ? "border-amber-500/40 bg-amber-500/10 text-amber-300"
-                : "border-zinc-700/70 text-zinc-500 hover:border-zinc-500 hover:text-zinc-300"
-            }`}
-            title={
-              ghost.isManuallyEliminated
-                ? "Restore ghost"
-                : "Manually eliminate ghost"
+                ? `Include ${ghost.name}`
+                : `Exclude ${ghost.name}`
             }
+            className={`focus-ring rounded border px-1.5 py-0.5 text-[10px] font-medium transition-colors ${
+              ghost.isManuallyEliminated
+                ? "border-[color-mix(in_srgb,var(--warning)_40%,transparent)] bg-[color-mix(in_srgb,var(--warning)_10%,transparent)] text-[var(--warning)]"
+                : "border-[var(--panel-border)] text-[var(--text-faint)] hover:text-[var(--text-secondary)]"
+            }`}
           >
             {ghost.isManuallyEliminated ? "Include" : "Exclude"}
           </button>
@@ -119,12 +124,15 @@ export function GhostCard({
         ))}
       </div>
 
-      <p className="mt-2 text-[11px] text-zinc-500">
+      <p className="mt-2 text-[11px]" style={{ color: "var(--text-faint)" }}>
         Speed: {ghost.speedProfile.summary}
       </p>
 
       {ghost.notes.length > 0 && (
-        <p className="mt-1 line-clamp-2 text-[11px] leading-relaxed text-zinc-600">
+        <p
+          className="mt-1 line-clamp-2 text-[11px] leading-relaxed"
+          style={{ color: "var(--text-muted)" }}
+        >
           {ghost.notes[0]}
         </p>
       )}

@@ -277,6 +277,33 @@ Manual verification:
 - [x] Recoverable failures do not destabilize unrelated features
 - [x] Idle clocks/animations pause or slow when the document is hidden
 
+---
+
+## Phase 12 checks
+
+```powershell
+npm run typecheck
+npm run lint
+npm run test
+npm run build
+cd src-tauri; cargo check
+```
+
+Manual verification:
+
+- Main + Overlay share mist/steel accent language; timing still reads amber
+- Light theme updates panel chrome (not only page background)
+- Keyboard: Tab shows focus rings; Settings closes on Escape
+- Zero possible ghosts shows empty-state copy; Overlay ticker shows “No matches”
+- Animations feel short/subtle; reduced-motion / hidden document still quiet
+
+### Acceptance criteria (Phase 12)
+
+- [x] Main Window and Overlay feel like one cohesive product
+- [x] Visual hierarchy is clear
+- [x] Animations remain subtle and performant
+- [x] No major usability issues remain in polished surfaces
+
 ## Automated tests
 
 Domain logic tests live alongside implementation:

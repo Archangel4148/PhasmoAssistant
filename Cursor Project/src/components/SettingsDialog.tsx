@@ -78,6 +78,9 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
   const [hexDraft, setHexDraft] = useState(appearance.ghostTextColor);
   const [toggleHotkeyDraft, setToggleHotkeyDraft] = useState(hotkeys.toggleTiming);
   const [micOptions, setMicOptions] = useState<MicOption[]>([]);
+  const [micStatus, setMicStatus] = useState<"idle" | "loading" | "ready" | "error">(
+    "idle",
+  );
   const [draftSourceOpen, setDraftSourceOpen] = useState(open);
 
   if (open !== draftSourceOpen) {
@@ -93,9 +96,27 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
       return;
     }
 
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open, onClose]);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
     let cancelled = false;
 
     async function loadMics(): Promise<void> {
+      setMicStatus("loading");
       try {
         await navigator.mediaDevices.getUserMedia({ audio: true });
       } catch {
@@ -115,8 +136,12 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
               label: device.label || `Microphone ${index + 1}`,
             })),
         );
+        setMicStatus("ready");
       } catch (error: unknown) {
         console.warn("Failed to enumerate microphones", error);
+        if (!cancelled) {
+          setMicStatus("error");
+        }
       }
     }
 
@@ -143,34 +168,48 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
 
           <motion.dialog
             open
+            aria-modal="true"
+            aria-labelledby="settings-title"
             initial={{ opacity: 0, scale: 0.96, y: 8 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.96, y: 8 }}
             transition={{ duration: 0.2, ease: "easeOut" }}
-            className="fixed left-1/2 top-1/2 z-50 m-0 flex max-h-[min(85vh,720px)] w-[min(calc(100vw-2rem),520px)] -translate-x-1/2 -translate-y-1/2 flex-col rounded-xl border border-zinc-700/80 bg-zinc-900 shadow-2xl"
+            className="fixed left-1/2 top-1/2 z-50 m-0 flex max-h-[min(85vh,720px)] w-[min(calc(100vw-2rem),520px)] -translate-x-1/2 -translate-y-1/2 flex-col rounded-xl border shadow-2xl"
+            style={{
+              borderColor: "var(--panel-border)",
+              background: "var(--panel-bg-solid)",
+              color: "var(--text-primary)",
+            }}
           >
-            <div className="flex items-center justify-between border-b border-zinc-800 px-5 py-4">
+            <div
+              className="flex items-center justify-between border-b px-5 py-4"
+              style={{ borderColor: "var(--panel-border)" }}
+            >
               <div>
-                <h2 className="text-base font-semibold text-zinc-100">
+                <h2
+                  id="settings-title"
+                  className="text-base font-semibold"
+                  style={{ color: "var(--text-primary)" }}
+                >
                   Settings
                 </h2>
-                <p className="text-xs text-zinc-500">
+                <p className="text-xs" style={{ color: "var(--text-faint)" }}>
                   Preferences persist across restarts (investigation state does not)
                 </p>
               </div>
               <button
                 type="button"
                 onClick={onClose}
-                className="rounded-md border border-zinc-700/80 px-2.5 py-1 text-xs text-zinc-400 hover:bg-zinc-800"
+                className="btn-ghost focus-ring px-2.5 py-1 text-xs"
               >
                 Close
               </button>
             </div>
 
             <div className="space-y-3 overflow-y-auto px-5 py-4">
-              <section className="rounded-lg border border-zinc-800/80 bg-zinc-950/50 px-3 py-3">
-                <p className="text-sm font-medium text-zinc-200">Theme</p>
-                <p className="mt-0.5 text-xs text-zinc-500">
+              <section className="inset-block px-3 py-3">
+                <p className="text-sm font-medium text-[var(--text-secondary)]">Theme</p>
+                <p className="mt-0.5 text-xs text-[var(--text-faint)]">
                   Main window color scheme
                 </p>
                 <fieldset className="mt-3 flex gap-2">
@@ -179,8 +218,8 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                       key={option}
                       className={`flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-md border px-2.5 py-2 text-sm capitalize ${
                         theme === option
-                          ? "border-amber-500/40 bg-amber-500/10 text-amber-100"
-                          : "border-zinc-800 bg-zinc-900/40 text-zinc-300"
+                          ? "border-[var(--accent-border)] bg-[var(--accent-soft)] text-[var(--accent-strong)]"
+                          : "border-[var(--panel-border)] bg-[var(--inset-bg)] text-[var(--text-secondary)]"
                       }`}
                     >
                       <input
@@ -192,7 +231,7 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                           setTheme(next);
                           applyThemeToDocument(next);
                         }}
-                        className="accent-amber-400"
+                        className="accent-[var(--accent)]"
                       />
                       {option}
                     </label>
@@ -200,18 +239,23 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                 </fieldset>
               </section>
 
-              <section className="rounded-lg border border-zinc-800/80 bg-zinc-950/50 px-3 py-3">
-                <p className="text-sm font-medium text-zinc-200">Voice</p>
-                <p className="mt-0.5 text-xs text-zinc-500">
+              <section className="inset-block px-3 py-3">
+                <p className="text-sm font-medium text-[var(--text-secondary)]">Voice</p>
+                <p className="mt-0.5 text-xs text-[var(--text-faint)]">
                   Preferred microphone (sidecar currently uses system default;
                   selection is remembered for future routing)
                 </p>
                 <label className="mt-3 block">
-                  <span className="text-[11px] font-medium uppercase tracking-wide text-zinc-500">
+                  <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-[var(--text-faint)]">
                     Microphone
                   </span>
                   <select
-                    className="mt-1.5 w-full rounded-md border border-zinc-700/80 bg-zinc-900 px-2.5 py-2 text-sm text-zinc-200 outline-none focus:border-zinc-500"
+                    className="focus-ring mt-1.5 w-full rounded-md border px-2.5 py-2 text-sm outline-none"
+                    style={{
+                      borderColor: "var(--panel-border)",
+                      background: "var(--inset-bg)",
+                      color: "var(--text-primary)",
+                    }}
                     value={microphone.deviceId ?? ""}
                     onChange={(event) => {
                       const deviceId = event.target.value || null;
@@ -231,16 +275,33 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                       </option>
                     ))}
                   </select>
+                  <p
+                    className="mt-1.5 text-[11px]"
+                    style={{
+                      color:
+                        micStatus === "error"
+                          ? "var(--danger)"
+                          : "var(--text-faint)",
+                    }}
+                  >
+                    {micStatus === "loading"
+                      ? "Detecting microphones…"
+                      : micStatus === "error"
+                        ? "Could not list microphones. System default remains available."
+                        : micOptions.length === 0
+                          ? "No named devices found yet — system default still works."
+                          : `${micOptions.length} input device${micOptions.length === 1 ? "" : "s"} available.`}
+                  </p>
                 </label>
               </section>
 
-              <section className="rounded-lg border border-zinc-800/80 bg-zinc-950/50 px-3 py-3">
-                <p className="text-sm font-medium text-zinc-200">Hotkeys</p>
-                <p className="mt-0.5 text-xs text-zinc-500">
+              <section className="inset-block px-3 py-3">
+                <p className="text-sm font-medium text-[var(--text-secondary)]">Hotkeys</p>
+                <p className="mt-0.5 text-xs text-[var(--text-faint)]">
                   Global shortcuts (Tauri accelerator syntax)
                 </p>
                 <label className="mt-3 block">
-                  <span className="text-[11px] font-medium uppercase tracking-wide text-zinc-500">
+                  <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-[var(--text-faint)]">
                     Toggle timing
                   </span>
                   <input
@@ -262,15 +323,15 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                           : DEFAULT_HOTKEY_PREFERENCES.toggleTiming,
                       );
                     }}
-                    className="mt-1.5 w-full rounded-md border border-zinc-700/80 bg-zinc-900 px-2.5 py-2 font-mono text-xs text-zinc-200 outline-none focus:border-zinc-500"
+                    className="mt-1.5 w-full rounded-md focus-ring border border-[var(--panel-border)] bg-[var(--inset-bg)] px-2.5 py-2 font-mono text-xs text-[var(--text-primary)] outline-none"
                   />
                 </label>
-                <p className="mt-2 text-[11px] text-zinc-500">
+                <p className="mt-2 text-[11px] text-[var(--text-faint)]">
                   Footstep capture stays Space + Numpad 0 while timing is armed
                 </p>
                 <button
                   type="button"
-                  className="mt-2 rounded border border-zinc-700/70 px-2 py-1 text-[11px] text-zinc-400 hover:border-zinc-500 hover:text-zinc-200"
+                  className="btn-ghost focus-ring mt-2 px-2 py-1 text-[11px]"
                   onClick={() => {
                     setHotkeys({
                       toggleTiming: DEFAULT_HOTKEY_PREFERENCES.toggleTiming,
@@ -285,9 +346,9 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                 </button>
               </section>
 
-              <section className="rounded-lg border border-zinc-800/80 bg-zinc-950/50 px-3 py-3">
-                <p className="text-sm font-medium text-zinc-200">Windows</p>
-                <p className="mt-0.5 text-xs text-zinc-500">
+              <section className="inset-block px-3 py-3">
+                <p className="text-sm font-medium text-[var(--text-secondary)]">Windows</p>
+                <p className="mt-0.5 text-xs text-[var(--text-faint)]">
                   Main/overlay geometry is saved automatically when you move or
                   resize. Overlay HUD scale is below.
                 </p>
@@ -295,11 +356,11 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                   <div className="flex items-center justify-between gap-2">
                     <label
                       htmlFor="overlay-scale"
-                      className="text-[11px] font-medium uppercase tracking-wide text-zinc-500"
+                      className="text-[11px] font-medium uppercase tracking-[0.08em] text-[var(--text-faint)]"
                     >
                       Overlay scale
                     </label>
-                    <span className="font-mono text-[11px] text-zinc-400">
+                    <span className="font-mono text-[11px] text-[var(--text-muted)]">
                       {Math.round(overlayLayout.scale * 100)}%
                     </span>
                   </div>
@@ -315,12 +376,12 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                         scale: clampOverlayScale(Number(event.target.value)),
                       });
                     }}
-                    className="mt-2 w-full accent-zinc-300"
+                    className="mt-2 w-full accent-[var(--accent)]"
                   />
                 </div>
                 <button
                   type="button"
-                  className="mt-3 rounded border border-zinc-700/70 px-2 py-1 text-[11px] text-zinc-400 hover:border-zinc-500 hover:text-zinc-200"
+                  className="btn-ghost focus-ring mt-3 px-2 py-1 text-[11px]"
                   onClick={() => {
                     setOverlayLayout({ scale: 1, geometry: null });
                     void resetOverlayWindowLayout();
@@ -330,11 +391,11 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                 </button>
               </section>
 
-              <section className="rounded-lg border border-zinc-800/80 bg-zinc-950/50 px-3 py-3">
-                <p className="text-sm font-medium text-zinc-200">
+              <section className="inset-block px-3 py-3">
+                <p className="text-sm font-medium text-[var(--text-secondary)]">
                   Ghost Speed Mode
                 </p>
-                <p className="mt-0.5 text-xs text-zinc-500">
+                <p className="mt-0.5 text-xs text-[var(--text-faint)]">
                   Match custom difficulty Ghost Speed so footstep results map to
                   base journal speeds
                 </p>
@@ -349,8 +410,8 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                         key={option.id}
                         className={`flex cursor-pointer items-center gap-2.5 rounded-md border px-2.5 py-2 text-sm transition-colors ${
                           selected
-                            ? "border-amber-500/40 bg-amber-500/10 text-amber-100"
-                            : "border-zinc-800 bg-zinc-900/40 text-zinc-300 hover:border-zinc-700"
+                            ? "border-[var(--accent-border)] bg-[var(--accent-soft)] text-[var(--accent-strong)]"
+                            : "border-[var(--panel-border)] bg-[var(--inset-bg)] text-[var(--text-secondary)] hover:border-[color-mix(in_srgb,var(--text-faint)_55%,transparent)]"
                         }`}
                       >
                         <input
@@ -364,7 +425,7 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                                 option.multiplier as GhostSpeedMultiplier,
                             });
                           }}
-                          className="accent-amber-400"
+                          className="accent-[var(--accent)]"
                         />
                         <span>{option.label}</span>
                       </label>
@@ -373,11 +434,11 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                 </fieldset>
               </section>
 
-              <section className="rounded-lg border border-zinc-800/80 bg-zinc-950/50 px-3 py-3">
-                <p className="text-sm font-medium text-zinc-200">
+              <section className="inset-block px-3 py-3">
+                <p className="text-sm font-medium text-[var(--text-secondary)]">
                   Timing Result Overlay
                 </p>
-                <p className="mt-0.5 text-xs text-zinc-500">
+                <p className="mt-0.5 text-xs text-[var(--text-faint)]">
                   How long the HUD keeps the finished speed result before fading
                 </p>
 
@@ -385,11 +446,11 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                   <div className="flex items-center justify-between gap-2">
                     <label
                       htmlFor="timing-result-hide"
-                      className="text-[11px] font-medium uppercase tracking-wide text-zinc-500"
+                      className="text-[11px] font-medium uppercase tracking-[0.08em] text-[var(--text-faint)]"
                     >
                       Hide after
                     </label>
-                    <span className="font-mono text-[11px] text-zinc-400">
+                    <span className="font-mono text-[11px] text-[var(--text-muted)]">
                       {settings.timingResultHideAfterSeconds}s
                     </span>
                   </div>
@@ -408,14 +469,14 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                           ),
                       });
                     }}
-                    className="mt-2 w-full accent-zinc-300"
+                    className="mt-2 w-full accent-[var(--accent)]"
                   />
                 </div>
               </section>
 
-              <section className="rounded-lg border border-zinc-800/80 bg-zinc-950/50 px-3 py-3">
-                <p className="text-sm font-medium text-zinc-200">Overlay HUD</p>
-                <p className="mt-0.5 text-xs text-zinc-500">
+              <section className="inset-block px-3 py-3">
+                <p className="text-sm font-medium text-[var(--text-secondary)]">Overlay HUD</p>
+                <p className="mt-0.5 text-xs text-[var(--text-faint)]">
                   Ghost ticker color and scroll speed
                 </p>
 
@@ -423,7 +484,7 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                   <div>
                     <label
                       htmlFor="overlay-ghost-color"
-                      className="text-[11px] font-medium uppercase tracking-wide text-zinc-500"
+                      className="text-[11px] font-medium uppercase tracking-[0.08em] text-[var(--text-faint)]"
                     >
                       Ghost text color
                     </label>
@@ -437,7 +498,7 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                           setHexDraft(next);
                           setOverlayAppearance({ ghostTextColor: next });
                         }}
-                        className="h-9 w-12 cursor-pointer rounded border border-zinc-700 bg-zinc-900 p-1"
+                        className="h-9 w-12 cursor-pointer rounded border border-[var(--panel-border)] bg-[var(--inset-bg)] p-1"
                       />
                       <input
                         type="text"
@@ -459,7 +520,7 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                             event.currentTarget.blur();
                           }
                         }}
-                        className="flex-1 rounded-md border border-zinc-700/80 bg-zinc-900 px-2.5 py-1.5 font-mono text-xs text-zinc-200 outline-none focus:border-zinc-500"
+                        className="focus-ring flex-1 rounded-md border border-[var(--panel-border)] bg-[var(--inset-bg)] px-2.5 py-1.5 font-mono text-xs text-[var(--text-primary)] outline-none"
                         aria-label="Ghost text color hex"
                       />
                     </div>
@@ -474,7 +535,7 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                               ghostTextColor: preset.value,
                             });
                           }}
-                          className="rounded border border-zinc-700/70 px-2 py-1 text-[11px] text-zinc-400 hover:border-zinc-500 hover:text-zinc-200"
+                          className="btn-ghost focus-ring px-2 py-1 text-[11px]"
                           style={{
                             boxShadow: `inset 0 -2px 0 ${preset.value}`,
                           }}
@@ -490,7 +551,7 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                             ...DEFAULT_OVERLAY_APPEARANCE,
                           });
                         }}
-                        className="rounded border border-zinc-700/70 px-2 py-1 text-[11px] text-zinc-400 hover:border-zinc-500 hover:text-zinc-200"
+                        className="btn-ghost focus-ring px-2 py-1 text-[11px]"
                       >
                         Reset
                       </button>
@@ -501,11 +562,11 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                     <div className="flex items-center justify-between gap-2">
                       <label
                         htmlFor="overlay-ticker-speed"
-                        className="text-[11px] font-medium uppercase tracking-wide text-zinc-500"
+                        className="text-[11px] font-medium uppercase tracking-[0.08em] text-[var(--text-faint)]"
                       >
                         Ticker speed
                       </label>
-                      <span className="font-mono text-[11px] text-zinc-400">
+                      <span className="font-mono text-[11px] text-[var(--text-muted)]">
                         {appearance.tickerSpeedPxPerSec} px/s
                       </span>
                     </div>
@@ -523,7 +584,7 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                           ),
                         });
                       }}
-                      className="mt-2 w-full accent-zinc-300"
+                      className="mt-2 w-full accent-[var(--accent)]"
                     />
                   </div>
                 </div>

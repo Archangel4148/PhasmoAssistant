@@ -82,7 +82,10 @@ export function MainWindow() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-zinc-950">
+    <div
+      className="flex min-h-screen flex-col"
+      style={{ background: "var(--app-bg)" }}
+    >
       <Header
         voiceStatus={voiceStatus}
         possibleGhostCount={possibleGhostCount}
@@ -92,7 +95,7 @@ export function MainWindow() {
       <motion.main
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        transition={{ duration: 0.3, ease: "easeOut" }}
+        transition={{ duration: 0.25, ease: "easeOut" }}
         className="flex flex-1 flex-col gap-4 p-4 lg:p-6"
       >
         <div className="grid flex-1 gap-4 xl:grid-cols-12">
